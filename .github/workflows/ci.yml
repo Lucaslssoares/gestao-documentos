@@ -94,6 +94,9 @@ jobs:
       TEM_SERVIDOR: ${{ secrets.DEPLOY_HOST != '' }}
     steps:
       - uses: actions/checkout@v7
+      # O GHCR exige nomes de imagem em minúsculas (o dono do repositório pode ter maiúsculas).
+      - name: Image owner (lowercase)
+        run: echo "DONO_IMAGEM=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -107,8 +110,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/gestao-documentos-backend:latest
-            ghcr.io/${{ github.repository_owner }}/gestao-documentos-backend:${{ github.sha }}
+            ghcr.io/${{ env.DONO_IMAGEM }}/gestao-documentos-backend:latest
+            ghcr.io/${{ env.DONO_IMAGEM }}/gestao-documentos-backend:${{ github.sha }}
 
       - name: Build and push frontend
         uses: docker/build-push-action@v7
@@ -120,8 +123,8 @@ jobs:
             VITE_SUPABASE_URL=${{ vars.VITE_SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ vars.VITE_SUPABASE_ANON_KEY }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/gestao-documentos-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/gestao-documentos-frontend:${{ github.sha }}
+            ghcr.io/${{ env.DONO_IMAGEM }}/gestao-documentos-frontend:latest
+            ghcr.io/${{ env.DONO_IMAGEM }}/gestao-documentos-frontend:${{ github.sha }}
 
       # Publicação no servidor: crie os secrets DEPLOY_HOST, DEPLOY_USER e DEPLOY_SSH_KEY.
       # Enquanto não houver servidor definido, o passo é pulado.
