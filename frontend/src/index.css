@@ -1,0 +1,160 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/*
+ * Paleta oficial do projeto
+ *   Primária / destaque  #C67139  laranja queimado
+ *   Primária escura      #8C491A  marrom queimado (botões e links: contraste AA com texto branco)
+ *   Texto principal      #201E1D  ·  Texto secundário #645C50
+ *   Fundo principal      #F5EAD8  ·  Fundo secundário #EBDDC5
+ *   Sucesso              #3D472B  ·  Sucesso claro #E1EECC  ·  Verde pastel #F0FAE1
+ *   Alerta suave         #FFE1D0  ·  Borda / divisor #C0B6A5
+ * Derivados (não estavam na paleta): papel dos cartões, divisor suave, tons da barra lateral
+ * (a partir do texto principal), hover escuro e tons de erro.
+ */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-primary: #c67139;
+  --color-primary-dark: #8c491a;
+  --color-primary-deeper: #6f3912;
+  --color-ink: #201e1d;
+  --color-ink-muted: #645c50;
+  --color-surface: #f5ead8;
+  --color-surface-2: #ebddc5;
+  --color-paper: #fffcf6;
+  --color-line: #c0b6a5;
+  --color-line-soft: #e6dac6;
+  --color-success: #3d472b;
+  --color-success-soft: #e1eecc;
+  --color-success-faint: #f0fae1;
+  --color-warning-soft: #ffe1d0;
+  --color-warning-ink: #8c491a;
+  --color-danger: #9b3b26;
+  --color-danger-soft: #f7d9d0;
+
+  /* Barra lateral escura */
+  --color-sidebar: #201e1d;
+  --color-sidebar-2: #2c2826;
+  --color-sidebar-line: #3a3532;
+  --color-sidebar-text: #efe4d2;
+  --color-sidebar-muted: #a99d8b;
+
+  --radius-card: 1.125rem;
+  --shadow-card: 0 1px 2px rgb(32 30 29 / 0.05), 0 6px 20px -6px rgb(32 30 29 / 0.08);
+  --shadow-elevated: 0 2px 6px rgb(32 30 29 / 0.08), 0 24px 48px -12px rgb(32 30 29 / 0.25);
+
+  --animate-surgir: surgir 0.18s ease-out;
+  --animate-deslizar: deslizar 0.22s ease-out;
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes deslizar {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-surface text-ink font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: var(--color-warning-soft);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+
+  dialog::backdrop {
+    background: rgb(32 30 29 / 0.45);
+    backdrop-filter: blur(2px);
+  }
+}
+
+@layer components {
+  .cartao {
+    @apply rounded-[var(--radius-card)] border border-line-soft bg-paper shadow-[var(--shadow-card)];
+  }
+
+  .cartao-interativo {
+    @apply rounded-[var(--radius-card)] border border-line-soft bg-paper shadow-[var(--shadow-card)] transition-all duration-150
+      hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elevated)];
+  }
+
+  .rotulo {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+
+  .campo {
+    @apply w-full rounded-xl border border-line-soft bg-white/70 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/70
+      transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/15
+      disabled:cursor-not-allowed disabled:bg-surface-2/60;
+  }
+
+  .tecla {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-current/25 px-1 text-[11px] font-semibold;
+  }
+}
+
+/* Barra de rolagem discreta nas listas internas */
+.rolagem-fina {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+.rolagem-escura {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sidebar-line) transparent;
+}
+
+/* Textura sutil sobre os gradientes (aplicar numa camada própria, não no mesmo elemento do gradiente) */
+.textura-pontos {
+  pointer-events: none;
+  background-image: radial-gradient(rgb(255 255 255 / 0.13) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

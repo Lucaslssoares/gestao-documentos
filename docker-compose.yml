@@ -1,0 +1,78 @@
+# Gestão de Documentos — serviços da aplicação.
+#
+# O Supabase (Auth + Postgres/pgvector + Edge Function de embeddings) roda à parte:
+#   local  → `npx supabase start` (também em Docker; veja o README)
+#   produção → projeto no Supabase Cloud
+#
+# Uso:  cp .env.example .env  →  docker compose up -d --build  →  http://localhost:8080
+name: gestao-documentos
+
+services:
+  # Armazenamento de arquivos (S3).
+  # A edição comunitária do MinIO foi descontinuada (sem imagens oficiais; removidas do
+  # Docker Hub em set/2026). Usamos a imagem gratuita da Chainguard, compilada a partir do
+  # código do MinIO. O backend fala S3 padrão: em produção dá para trocar por MinIO comercial
+  # (AIStor), SeaweedFS ou Garage apenas mudando as variáveis S3_* — sem alterar código.
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?defina MINIO_ROOT_USER no .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?defina MINIO_ROOT_PASSWORD no .env}
+    ports:
+      - "9000:9000" # API S3 (usada pelo backend em desenvolvimento)
+      - "9001:9001" # console web
+    volumes:
+      - minio-dados:/data
+    restart: unless-stopped
+
+  # Cria o bucket privado e um usuário próprio da aplicação (o backend não usa a conta root).
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest-dev
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-gestao-documentos}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY no .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY no .env}
+    entrypoint: ["/bin/sh", "/init/minio-init.sh"]
+    volumes:
+      - ./infra/minio-init.sh:/init/minio-init.sh:ro
+    restart: "no"
+
+  # Em desenvolvimento as imagens são construídas aqui; no servidor, o CI publica no GHCR
+  # e o deploy faz "docker compose pull" (defina GHCR_OWNER no .env do servidor).
+  backend:
+    image: ghcr.io/${GHCR_OWNER:-local}/gestao-documentos-backend:${IMAGE_TAG:-latest}
+    build: ./backend
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      S3_ENDPOINT: http://minio:9000
+      # Supabase local (CLI) roda no host; em produção use a URL do projeto no .env.
+      SUPABASE_URL: ${SUPABASE_URL_DOCKER:-${SUPABASE_URL}}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:-local}/gestao-documentos-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ./frontend
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  minio-dados:

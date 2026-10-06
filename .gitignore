@@ -1,0 +1,23 @@
+# Dependências e builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/
+supabase/functions/.env
+
+# Sistema / editores
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/

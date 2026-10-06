@@ -1,0 +1,30 @@
+name: Supabase (produção)
+
+# Aplica as migrations e publica a Edge Function "embed" no projeto Supabase de produção.
+# Execução manual (Actions → Supabase (produção) → Run workflow), depois de revisar as migrations.
+# Secrets necessários: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: producao
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - name: Link project
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+      - name: Apply migrations
+        run: supabase db push
+      - name: Deploy Edge Function (embeddings gte-small)
+        run: supabase functions deploy embed --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
