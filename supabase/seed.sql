@@ -82,5 +82,5 @@ insert into public.filiais (empresa_id, nome, codigo, cidade, uf) values
 -- Tags
 -- -----------------------------------------------------------------------------
 insert into public.tags (nome, cor) values
-  ('Urgente', '#C67139'), ('Renovação', '#3D472B'), ('Auditoria 2026', '#8C491A'),
-  ('Confidencial', '#201E1D'), ('Original físico', '#645C50');
+  ('Urgente', '#E14E0D'), ('Renovação', '#4E7A1C'), ('Auditoria 2026', '#2F7FA8'),
+  ('Confidencial', '#1C2616'), ('Original físico', '#5B6B4E');
