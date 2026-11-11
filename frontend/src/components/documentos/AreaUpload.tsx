@@ -62,8 +62,8 @@ export function AreaUpload({ arquivo, aoEscolher }: { arquivo: File | null; aoEs
           escolher(e.dataTransfer.files);
         }}
         className={clsx(
-          "flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors",
-          arrastando ? "border-primary bg-warning-soft/60" : "border-line bg-paper hover:border-primary/60",
+          "flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 py-12 text-center transition-colors",
+          arrastando ? "border-primary bg-success-faint" : "border-line bg-paper hover:border-primary/60 hover:bg-success-faint/50",
         )}
       >
         <FileUp className="size-8 text-primary" aria-hidden />

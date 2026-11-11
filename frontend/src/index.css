@@ -2,47 +2,47 @@
 @import "@fontsource-variable/inter";
 
 /*
- * Paleta oficial do projeto
- *   Primária / destaque  #C67139  laranja queimado
- *   Primária escura      #8C491A  marrom queimado (botões e links: contraste AA com texto branco)
- *   Texto principal      #201E1D  ·  Texto secundário #645C50
- *   Fundo principal      #F5EAD8  ·  Fundo secundário #EBDDC5
- *   Sucesso              #3D472B  ·  Sucesso claro #E1EECC  ·  Verde pastel #F0FAE1
- *   Alerta suave         #FFE1D0  ·  Borda / divisor #C0B6A5
- * Derivados (não estavam na paleta): papel dos cartões, divisor suave, tons da barra lateral
- * (a partir do texto principal), hover escuro e tons de erro.
+ * Paleta de cores da Belém Bioenergia Brasil (a mesma do portal BBB; sem logotipo)
+ *   Verde da marca     #7AA52A  Pantone 369C (destaques, ícones, item ativo do menu)
+ *   Verde escuro       #4E7A1C  botões e links (contraste AA com texto branco)
+ *   Verde floresta     #33461F  barra lateral
+ *   Laranja da marca   #E14E0D  PMS 1665 (contadores e alertas pontuais)
+ *   Fundo              #F5F7F1  quase branco com toque verde-oliva · cartões em branco
+ * Os tokens mantêm os nomes antigos (primary, surface, paper...) para não mexer nas telas.
  */
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --color-primary: #c67139;
-  --color-primary-dark: #8c491a;
-  --color-primary-deeper: #6f3912;
-  --color-ink: #201e1d;
-  --color-ink-muted: #645c50;
-  --color-surface: #f5ead8;
-  --color-surface-2: #ebddc5;
-  --color-paper: #fffcf6;
-  --color-line: #c0b6a5;
-  --color-line-soft: #e6dac6;
-  --color-success: #3d472b;
-  --color-success-soft: #e1eecc;
-  --color-success-faint: #f0fae1;
-  --color-warning-soft: #ffe1d0;
-  --color-warning-ink: #8c491a;
-  --color-danger: #9b3b26;
-  --color-danger-soft: #f7d9d0;
+  --color-primary: #7aa52a;
+  --color-primary-dark: #4e7a1c;
+  --color-primary-deeper: #3d6114;
+  --color-accent: #e14e0d;
+  --color-accent-soft: #fde8dd;
+  --color-ink: #1c2616;
+  --color-ink-muted: #5d6852;
+  --color-surface: #f5f7f1;
+  --color-surface-2: #eaeee3;
+  --color-paper: #ffffff;
+  --color-line: #cdd5c2;
+  --color-line-soft: #e2e7da;
+  --color-success: #3f6b1f;
+  --color-success-soft: #e5f0d6;
+  --color-success-faint: #f2f8ea;
+  --color-warning-soft: #fde8dd;
+  --color-warning-ink: #b33e08;
+  --color-danger: #c0352b;
+  --color-danger-soft: #fbe2df;
 
-  /* Barra lateral escura */
-  --color-sidebar: #201e1d;
-  --color-sidebar-2: #2c2826;
-  --color-sidebar-line: #3a3532;
-  --color-sidebar-text: #efe4d2;
-  --color-sidebar-muted: #a99d8b;
+  /* Barra lateral verde-floresta (portal BBB) */
+  --color-sidebar: #33461f;
+  --color-sidebar-2: #42582c;
+  --color-sidebar-line: #4b5f37;
+  --color-sidebar-text: #eef2e7;
+  --color-sidebar-muted: #b3c19f;
 
-  --radius-card: 1.125rem;
-  --shadow-card: 0 1px 2px rgb(32 30 29 / 0.05), 0 6px 20px -6px rgb(32 30 29 / 0.08);
-  --shadow-elevated: 0 2px 6px rgb(32 30 29 / 0.08), 0 24px 48px -12px rgb(32 30 29 / 0.25);
+  --radius-card: 0.875rem;
+  --shadow-card: 0 1px 2px rgb(28 38 22 / 0.05), 0 4px 16px -6px rgb(28 38 22 / 0.08);
+  --shadow-elevated: 0 2px 6px rgb(28 38 22 / 0.08), 0 16px 40px -12px rgb(51 70 31 / 0.35);
 
   --animate-surgir: surgir 0.18s ease-out;
   --animate-deslizar: deslizar 0.22s ease-out;
@@ -76,6 +76,10 @@
   body {
     @apply bg-surface text-ink font-sans antialiased;
     min-height: 100dvh;
+    background-image:
+      radial-gradient(circle at top right, rgb(122 165 42 / 0.07), transparent 28%),
+      radial-gradient(circle at left bottom, rgb(51 70 31 / 0.05), transparent 22%);
+    background-attachment: fixed;
   }
 
   h1,
@@ -85,7 +89,7 @@
   }
 
   ::selection {
-    background: var(--color-warning-soft);
+    background: var(--color-success-soft);
     color: var(--color-ink);
   }
 
@@ -102,7 +106,7 @@
   }
 
   dialog::backdrop {
-    background: rgb(32 30 29 / 0.45);
+    background: rgb(28 38 22 / 0.45);
     backdrop-filter: blur(2px);
   }
 }
@@ -122,7 +126,7 @@
   }
 
   .campo {
-    @apply w-full rounded-xl border border-line-soft bg-white/70 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/70
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/70
       transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/15
       disabled:cursor-not-allowed disabled:bg-surface-2/60;
   }

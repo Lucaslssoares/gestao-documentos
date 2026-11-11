@@ -33,7 +33,7 @@ export default function DefinirSenhaPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center px-5">
       <form onSubmit={aoEnviar} className="cartao w-full max-w-sm p-6 sm:p-8">
-        <img src="/favicon.svg" alt="" className="mb-4 size-10" />
+        <img src="/favicon.svg" alt="" className="mb-4 size-10 rounded-xl" />
         <h1 className="text-2xl font-bold">Defina sua senha</h1>
         {!sessao ? (
           <div className="mt-4">

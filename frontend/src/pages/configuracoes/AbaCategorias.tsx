@@ -12,7 +12,7 @@ import { api } from "../../lib/api";
 import { chaves } from "../../lib/consultas";
 import type { Categoria } from "../../lib/tipos";
 
-const CORES = ["#8C491A", "#C67139", "#3D472B", "#645C50", "#201E1D"];
+const CORES = ["#4E7A1C", "#7AA52A", "#E14E0D", "#2F7FA8", "#C98A12", "#7B5EA7", "#5B6B4E"];
 
 interface Edicao {
   id?: string;

@@ -54,18 +54,18 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
-      <section className="relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-sidebar via-primary-deeper to-primary-dark p-12 text-surface lg:flex">
+      <section className="relative hidden flex-col justify-between overflow-hidden bg-linear-140 from-sidebar via-[#3f5a26] to-primary-deeper p-12 text-surface lg:flex">
         <div className="textura-pontos absolute inset-0" aria-hidden />
         <div className="absolute -right-24 -bottom-24 size-96 rounded-full bg-primary/30 blur-3xl" aria-hidden />
-        <div className="relative flex items-center gap-3">
-          <img src="/favicon.svg" alt="" className="size-11" />
+        <div className="relative flex items-center gap-3.5">
+          <img src="/favicon.svg" alt="" className="size-11 rounded-xl" />
           <span className="text-xl font-bold">
-            Gestão de <span className="text-primary">Documentos</span>
+            Gestão de <span className="text-[#b9d77a]">Documentos</span>
           </span>
         </div>
         <div className="relative">
           <h1 className="max-w-md text-4xl leading-tight font-bold">
-            Organização, controle e agilidade para os <span className="text-[#f2b48a]">documentos</span> da empresa.
+            Organização, controle e agilidade para os <span className="text-[#b9d77a]">documentos</span> da empresa.
           </h1>
           <ul className="mt-10 grid max-w-lg gap-5">
             {DESTAQUES.map(({ icone: Icone, titulo, texto }) => (
@@ -85,11 +85,11 @@ export function LoginPage() {
       </section>
 
       <section className="flex items-center justify-center px-5 py-10">
-        <form onSubmit={aoEnviar} className="w-full max-w-sm rounded-[1.5rem] border border-line-soft bg-paper p-6 shadow-[var(--shadow-elevated)] sm:p-8">
+        <form onSubmit={aoEnviar} className="w-full max-w-sm rounded-2xl border border-line-soft bg-paper p-6 shadow-[var(--shadow-elevated)] sm:p-8">
           <div className="mb-6 flex items-center gap-3 lg:hidden">
-            <img src="/favicon.svg" alt="" className="size-10" />
+            <img src="/favicon.svg" alt="" className="size-10 rounded-xl" />
             <span className="text-lg font-bold">
-              Gestão de <span className="text-primary">Documentos</span>
+              Gestão de <span className="text-primary-dark">Documentos</span>
             </span>
           </div>
           <h2 className="text-3xl font-bold">Bem-vindo</h2>
