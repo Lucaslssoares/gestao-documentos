@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ChevronRight, Folder, LayoutGrid, List, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronRight, Folder, LayoutGrid, List, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { IconeCategoria } from "../components/documentos/Indicadores";
@@ -129,7 +129,7 @@ export default function DocumentosPage() {
           </nav>
           <h1 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
             {atual && (
-              <span className="flex size-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${lista.find((c) => c.id === atual.raiz_id)?.cor ?? "#C67139"}1f` }}>
+              <span className="flex size-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${lista.find((c) => c.id === atual.raiz_id)?.cor ?? "#7AA52A"}1f` }}>
                 {atual.nivel === 1 ? <IconeCategoria icone={atual.icone} cor={atual.cor} /> : <Folder className="size-5 text-primary-dark" aria-hidden />}
               </span>
             )}
@@ -148,14 +148,6 @@ export default function DocumentosPage() {
               { valor: "grade", rotulo: "Grade", icone: LayoutGrid },
             ]}
           />
-          {podeCadastrar && (
-            <Link
-              to={`/documentos/novo${atual ? `?categoria=${atual.id}` : ""}`}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary-dark px-4 text-[15px] font-semibold text-white shadow-sm hover:bg-primary-deeper"
-            >
-              <Plus className="size-4" aria-hidden /> <span className="hidden sm:inline">Novo documento</span>
-            </Link>
-          )}
         </div>
       </div>
 
@@ -227,7 +219,7 @@ export default function DocumentosPage() {
               <button key={pasta.id} type="button" onClick={() => atualizar({ categoria: pasta.id })} className="cartao-interativo flex items-center gap-3 p-3.5 text-left">
                 <span
                   className="flex size-10 shrink-0 items-center justify-center rounded-xl"
-                  style={{ backgroundColor: `${pasta.cor ?? lista.find((c) => c.id === pasta.raiz_id)?.cor ?? "#C67139"}1f` }}
+                  style={{ backgroundColor: `${pasta.cor ?? lista.find((c) => c.id === pasta.raiz_id)?.cor ?? "#7AA52A"}1f` }}
                 >
                   {pasta.nivel === 1 ? <IconeCategoria icone={pasta.icone} cor={pasta.cor} /> : <Folder className="size-5 text-primary-dark" aria-hidden />}
                 </span>

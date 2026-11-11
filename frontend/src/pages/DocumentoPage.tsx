@@ -86,7 +86,7 @@ export default function DocumentoPage() {
         <div className="flex min-w-0 gap-4">
           <span
             className="flex size-14 shrink-0 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: `${d.raiz_cor ?? "#C67139"}1f`, color: d.raiz_cor ?? "#8C491A" }}
+            style={{ backgroundColor: `${d.raiz_cor ?? "#7AA52A"}1f`, color: d.raiz_cor ?? "#4E7A1C" }}
           >
             <IconeArquivo mime={d.mime_type} className="size-7" />
           </span>

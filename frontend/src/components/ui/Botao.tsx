@@ -6,8 +6,8 @@ type Variante = "primario" | "secundario" | "fantasma" | "perigo";
 type Tamanho = "sm" | "md";
 
 const VARIANTES: Record<Variante, string> = {
-  // Botão principal em marrom queimado: contraste AA com texto branco.
-  primario: "bg-primary-dark text-white shadow-[0_6px_16px_-6px_rgb(140_73_26/0.6)] hover:bg-primary-deeper",
+  // Botão principal no verde escuro da marca: contraste AA com texto branco.
+  primario: "bg-primary-dark text-white shadow-[0_6px_16px_-6px_rgb(78_122_28/0.55)] hover:bg-primary-deeper",
   secundario: "border border-line-soft bg-paper text-ink shadow-sm hover:border-line hover:bg-white",
   fantasma: "text-ink-muted hover:bg-surface-2/70 hover:text-ink",
   perigo: "bg-danger text-white hover:bg-danger/90",
