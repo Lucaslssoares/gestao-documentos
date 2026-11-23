@@ -24,12 +24,32 @@ export interface Perfil {
 export const TIPOS_CAMPO = ["texto", "texto_longo", "numero", "moeda", "data", "booleano", "selecao"] as const;
 export type TipoCampo = (typeof TIPOS_CAMPO)[number];
 
+/** Formatos validados de campos de texto. */
+export const FORMATOS_CAMPO = ["cnpj", "chave_nfe", "competencia"] as const;
+export type FormatoCampo = (typeof FORMATOS_CAMPO)[number];
+
 export interface CampoPersonalizado {
   chave: string;
   rotulo: string;
   tipo: TipoCampo;
   obrigatorio?: boolean;
   opcoes?: string[];
+  /** Seção do formulário (ex.: "Valores"). */
+  grupo?: string;
+  formato?: FormatoCampo;
+  ajuda?: string;
+  placeholder?: string;
+  /** Unidade mostrada no campo (ex.: "dias", "ha"). */
+  sufixo?: string;
+}
+
+/** Como o cadastro se adapta ao tipo (rótulos, o que não se aplica, sugestões). */
+export interface ConfigTipo {
+  rotulos?: { data_documento?: string; data_validade?: string; contraparte?: string };
+  ocultar?: ("data_validade" | "contraparte")[];
+  aviso_padrao_dias?: number;
+  validade_padrao_dias?: number;
+  dica?: string;
 }
 
 export interface TipoDocumento {

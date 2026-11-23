@@ -29,9 +29,30 @@ describe("CamposPersonalizados", () => {
     );
     expect(screen.getByLabelText(/Número/)).toBeRequired();
     fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "1500.5" } });
-    expect(aoMudar).toHaveBeenCalledWith("valor_total", 1500.5);
+    expect(aoMudar).toHaveBeenCalledWith({ valor_total: 1500.5 });
     fireEvent.change(screen.getByLabelText("Forma"), { target: { value: "PIX" } });
-    expect(aoMudar).toHaveBeenCalledWith("forma", "PIX");
+    expect(aoMudar).toHaveBeenCalledWith({ forma: "PIX" });
+  });
+
+  it("agrupa por seção, aplica máscara de CNPJ e lê a chave da NF-e", () => {
+    const aoMudar = vi.fn();
+    render(
+      <CamposPersonalizados
+        campos={[
+          { chave: "chave_acesso", rotulo: "Chave de acesso", tipo: "texto", formato: "chave_nfe", grupo: "Nota" },
+          { chave: "numero", rotulo: "Número", tipo: "texto", grupo: "Nota" },
+          { chave: "serie", rotulo: "Série", tipo: "texto", grupo: "Nota" },
+          { chave: "cnpj_emitente", rotulo: "CNPJ do emitente", tipo: "texto", formato: "cnpj", grupo: "Nota" },
+        ]}
+        valores={{}}
+        aoMudar={aoMudar}
+      />,
+    );
+    expect(screen.getByText("Nota")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("CNPJ do emitente"), { target: { value: "11222333000181" } });
+    expect(aoMudar).toHaveBeenCalledWith({ cnpj_emitente: "11.222.333/0001-81" });
+    fireEvent.change(screen.getByLabelText("Chave de acesso"), { target: { value: "35261011222333000181550010000012341000123453" } });
+    expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ numero: "1234", serie: "1", cnpj_emitente: "11.222.333/0001-81" }));
   });
 });
 

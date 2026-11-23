@@ -82,6 +82,17 @@ export default function DocumentoPage() {
   if (!d) return null;
 
   const prazo = d.situacao === "a_vencer" || d.situacao === "vencido" ? textoPrazo(d.dias_para_vencer) : null;
+  // Rótulos e campos que valem para o tipo (ex.: NF-e não tem validade; contrato tem "Fim da vigência").
+  const config = d.tipo.config ?? {};
+  const oculto = new Set(config.ocultar ?? []);
+  const rotulo = (campo: "data_documento" | "data_validade" | "contraparte", padrao: string) => config.rotulos?.[campo] ?? padrao;
+  const gruposCampos = d.tipo.campos.reduce<{ nome: string; campos: typeof d.tipo.campos }[]>((grupos, campo) => {
+    const nome = campo.grupo ?? "";
+    const grupo = grupos.find((g) => g.nome === nome);
+    if (grupo) grupo.campos.push(campo);
+    else grupos.push({ nome, campos: [campo] });
+    return grupos;
+  }, []);
 
   return (
     <div>
@@ -171,15 +182,15 @@ export default function DocumentoPage() {
             <dl className="grid gap-2.5 text-sm">
               <Info rotulo="Categoria">{d.categoria_caminho}</Info>
               <Info rotulo="Empresa">{[d.empresa_nome, d.filial_nome].filter(Boolean).join(" · ") || "—"}</Info>
-              <Info rotulo="Contraparte">{d.contraparte_nome ?? "—"}</Info>
+              {!oculto.has("contraparte") && <Info rotulo={rotulo("contraparte", "Contraparte")}>{d.contraparte_nome ?? "—"}</Info>}
               <Info rotulo="Setor responsável">{d.setor_nome ?? "—"}</Info>
               <Info rotulo="Responsável">{d.responsavel_nome ?? "—"}</Info>
-              <Info rotulo="Data do documento">{formatarData(d.data_documento)}</Info>
-              <Info rotulo="Validade">
+              <Info rotulo={rotulo("data_documento", "Data do documento")}>{formatarData(d.data_documento)}</Info>
+              {!oculto.has("data_validade") && <Info rotulo={rotulo("data_validade", "Validade")}>
                 {formatarData(d.data_validade)}
                 {prazo && <span className={d.situacao === "vencido" ? "text-danger" : "text-warning-ink"}> · {prazo}</span>}
                 {d.data_validade && <span className="block text-xs text-ink-muted">aviso {d.aviso_dias} dias antes</span>}
-              </Info>
+              </Info>}
               {(d.proxima_revisao || d.revisao_meses) && (
                 <Info rotulo="Revisão periódica">
                   {d.proxima_revisao ? `próxima em ${formatarData(d.proxima_revisao)}` : "—"}
@@ -211,14 +222,21 @@ export default function DocumentoPage() {
 
           {d.tipo.campos.length > 0 && (
             <section className="cartao p-4">
-              <h2 className="mb-3 font-semibold">Dados do {d.tipo.nome.toLowerCase()}</h2>
-              <dl className="grid gap-2.5 text-sm">
-                {d.tipo.campos.map((campo) => (
-                  <Info key={campo.chave} rotulo={campo.rotulo}>
-                    {formatarCampo(campo, d.metadados[campo.chave])}
-                  </Info>
+              <h2 className="mb-3 font-semibold">Dados de {d.tipo.nome.toLowerCase()}</h2>
+              <div className="space-y-4">
+                {gruposCampos.map((grupo) => (
+                  <div key={grupo.nome || "campos"}>
+                    {grupo.nome && gruposCampos.length > 1 && <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">{grupo.nome}</p>}
+                    <dl className="grid gap-2.5 text-sm">
+                      {grupo.campos.map((campo) => (
+                        <Info key={campo.chave} rotulo={campo.rotulo}>
+                          <span className={campo.formato === "chave_nfe" ? "font-mono text-xs break-all" : undefined}>{formatarCampo(campo, d.metadados[campo.chave])}</span>
+                        </Info>
+                      ))}
+                    </dl>
+                  </div>
                 ))}
-              </dl>
+              </div>
             </section>
           )}
 

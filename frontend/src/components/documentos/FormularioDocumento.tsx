@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../lib/api";
 import { achatarCategorias, chaves, useAprovadores, useCategorias, useChatDisponivel, useEmpresas, useEquipe, useSetores, useTipos } from "../../lib/consultas";
-import { formatarTamanho } from "../../lib/format";
+import { lerXmlNfe, mascarar } from "../../lib/campos";
+import { formatarData, formatarTamanho } from "../../lib/format";
 import type { DocumentoDetalhe, SugestaoClassificacao } from "../../lib/tipos";
 import { Botao } from "../ui/Botao";
 import { Campo, Carregando, MensagemErro } from "../ui/Basicos";
@@ -17,6 +18,7 @@ import { CamposPersonalizados } from "./CamposPersonalizados";
 import { IconeArquivo } from "./Indicadores";
 import { NovaEmpresaModal } from "./NovaEmpresaModal";
 import { SeletorTags } from "./SeletorTags";
+import { SeletorTipo } from "./SeletorTipo";
 
 /** Etapas do cadastro: só as duas primeiras são obrigatórias. */
 const ETAPAS = [
@@ -86,6 +88,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
   }));
   const [sugestao, setSugestao] = useState<SugestaoClassificacao | null>(null);
   const [sugerindo, setSugerindo] = useState(false);
+  const [lidoDoXml, setLidoDoXml] = useState<{ emitente: string; cadastrado: boolean } | null>(null);
   const chat = useChatDisponivel();
   const definir = <K extends keyof Dados>(campo: K, valor: Dados[K]) => setDados((d) => ({ ...d, [campo]: valor }));
 
@@ -112,7 +115,18 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
       const sugerida = novo?.categoria_padrao_id && opcoesCategoria.some((c) => c.id === novo.categoria_padrao_id) ? novo.categoria_padrao_id : null;
       // Revisão periódica: vem do tipo quando o documento ainda não tem uma definida.
       const revisao = d.revisao_meses || (novo?.revisao_meses ? String(novo.revisao_meses) : "");
-      return { ...d, tipo_id: tipoId, metadados, categoria_id: d.categoria_id || sugerida || "", revisao_meses: revisao };
+      const ocultar = new Set(novo?.config?.ocultar ?? []);
+      return {
+        ...d,
+        tipo_id: tipoId,
+        metadados,
+        categoria_id: d.categoria_id || sugerida || "",
+        revisao_meses: revisao,
+        // No cadastro, a antecedência do aviso vem do tipo (ex.: licença 120 dias).
+        aviso_dias: edicao ? d.aviso_dias : (novo?.config?.aviso_padrao_dias ?? 30),
+        data_validade: ocultar.has("data_validade") ? "" : d.data_validade,
+        contraparte_id: ocultar.has("contraparte") ? "" : d.contraparte_id,
+      };
     });
   }
 
@@ -156,9 +170,41 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
 
   function escolherArquivo(a: File | null) {
     setArquivo(a);
+    setLidoDoXml(null);
     if (a && !dados.titulo) definir("titulo", a.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
+    if (a && /\.xml$/i.test(a.name)) void a.text().then(preencherComXml);
     // Escolheu o arquivo: segue direto para a classificação.
     if (a && !edicao) irPara(1);
+  }
+
+  /** XML de NF-e: tipo, número, série, chave, valores, data e emitente saem do próprio arquivo. */
+  function preencherComXml(texto: string) {
+    const nf = lerXmlNfe(texto);
+    const tipoNf = tipos.data?.find((t) => t.codigo === "nota_fiscal");
+    if (!nf || !tipoNf) return;
+    const emitente = empresas.data?.find((e) => e.cnpj && e.cnpj.replace(/\D/g, "") === nf.cnpj_emitente);
+    const sugerida = tipoNf.categoria_padrao_id && opcoesCategoria.some((c) => c.id === tipoNf.categoria_padrao_id) ? tipoNf.categoria_padrao_id : null;
+    const sigla = nf.modelo?.startsWith("NFC") ? "NFC-e" : "NF-e";
+    setDados((d) => ({
+      ...d,
+      tipo_id: tipoNf.id,
+      titulo: nf.nome_emitente ? `${sigla} ${nf.numero} — ${nf.nome_emitente}` : `${sigla} ${nf.numero}`,
+      categoria_id: d.categoria_id || sugerida || "",
+      data_documento: nf.emissao ?? d.data_documento,
+      data_validade: "",
+      contraparte_id: emitente?.id ?? d.contraparte_id,
+      metadados: {
+        chave_acesso: nf.chave ? mascarar("chave_nfe", nf.chave) : undefined,
+        modelo: nf.modelo,
+        numero: nf.numero,
+        serie: nf.serie,
+        natureza_operacao: nf.natureza || undefined,
+        cnpj_emitente: nf.cnpj_emitente ? mascarar("cnpj", nf.cnpj_emitente) : undefined,
+        valor_total: nf.valor_total ?? undefined,
+        valor_impostos: nf.valor_impostos ?? undefined,
+      },
+    }));
+    setLidoDoXml({ emitente: nf.nome_emitente, cadastrado: Boolean(emitente) });
   }
 
   // O botão que enviou o formulário diz se é para avançar de etapa ou salvar.
@@ -168,6 +214,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
     const acao = ((e.nativeEvent as SubmitEvent).submitter as HTMLElement | null)?.dataset.acao;
     if (!edicao && acao === "avancar") {
       if (etapa === 0 && !arquivo) return setErro(new Error("Escolha o arquivo do documento para continuar."));
+      if (etapa === 1 && !dados.tipo_id) return setErro(new Error("Escolha o tipo de documento."));
       return irPara(etapa + 1);
     }
     void salvar();
@@ -269,6 +316,32 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
     </div>
   );
 
+  const config = tipo?.config ?? {};
+  const oculto = new Set(config.ocultar ?? []);
+  const rotulo = (campo: "data_documento" | "data_validade" | "contraparte", padrao: string) => config.rotulos?.[campo] ?? padrao;
+  // Validade sugerida pelo tipo (ex.: certidão 180 dias), a partir da data do documento.
+  const validadeSugerida =
+    config.validade_padrao_dias && dados.data_documento && !dados.data_validade
+      ? new Date(new Date(`${dados.data_documento}T12:00:00`).getTime() + config.validade_padrao_dias * 86_400_000).toISOString().slice(0, 10)
+      : null;
+
+  const secaoTipo = (
+    <section className="cartao p-4 sm:p-6">
+      <h2 className="mb-1 font-semibold">Que documento é este?</h2>
+      <p className="mb-4 text-sm text-ink-muted">O formulário se adapta ao tipo: campos, datas e avisos próprios de cada documento.</p>
+      <SeletorTipo tipos={tipos.data ?? []} categorias={categorias.data ?? []} valor={dados.tipo_id} aoEscolher={trocarTipo} />
+      {lidoDoXml && (
+        <p role="status" className="mt-3 flex gap-2 rounded-xl border border-primary/30 bg-success-faint px-3 py-2.5 text-sm">
+          <Check className="mt-0.5 size-4 shrink-0 text-primary-dark" aria-hidden />
+          <span>
+            <span className="font-semibold">Dados lidos do XML da NF-e.</span> Confira chave, número, valores e data.
+            {lidoDoXml.emitente && !lidoDoXml.cadastrado && ` O emitente “${lidoDoXml.emitente}” ainda não está cadastrado: use “Nova” no campo do emitente.`}
+          </span>
+        </p>
+      )}
+    </section>
+  );
+
   const secaoIdentificacao = (
     <section className="cartao grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2">
@@ -291,16 +364,6 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
       <Campo rotulo="Nome do documento" htmlFor="titulo" obrigatorio className="sm:col-span-2">
         <input id="titulo" required maxLength={300} className="campo" value={dados.titulo} onChange={(e) => definir("titulo", e.target.value)} />
       </Campo>
-      <Campo rotulo="Tipo de documento" htmlFor="tipo" obrigatorio ajuda="O tipo sugere a pasta e mostra os campos próprios dele.">
-        <select id="tipo" required className="campo" value={dados.tipo_id} onChange={(e) => trocarTipo(e.target.value)}>
-          <option value="">Selecione...</option>
-          {tipos.data?.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nome}
-            </option>
-          ))}
-        </select>
-      </Campo>
       <Campo rotulo="Pasta" htmlFor="categoria" obrigatorio ajuda={opcoesCategoria.length === 0 ? "Você não tem permissão de cadastro em nenhuma pasta." : undefined}>
         <select id="categoria" required className="campo" value={dados.categoria_id} onChange={(e) => definir("categoria_id", e.target.value)}>
           <option value="">Selecione...</option>
@@ -320,18 +383,36 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
 
   const secaoCampos = tipo && tipo.campos.length > 0 && (
     <section className="cartao p-4 sm:p-6">
-      <h2 className="mb-3 font-semibold">Dados do {tipo.nome.toLowerCase()}</h2>
-      <CamposPersonalizados campos={tipo.campos} valores={dados.metadados} aoMudar={(chave, valor) => definir("metadados", { ...dados.metadados, [chave]: valor })} />
+      <h2 className="mb-1 font-semibold">Dados de {tipo.nome.toLowerCase()}</h2>
+      {config.dica ? <p className="mb-4 text-sm text-ink-muted">{config.dica}</p> : <div className="mb-3" />}
+      <CamposPersonalizados campos={tipo.campos} valores={dados.metadados} aoMudar={(mudancas) => setDados((d) => ({ ...d, metadados: { ...d.metadados, ...mudancas } }))} />
     </section>
   );
 
   const secaoDatas = (
     <section className="cartao grid gap-4 p-4 sm:grid-cols-3 sm:p-6">
-      <h2 className="font-semibold sm:col-span-3">Datas{edicao && " e situação"}</h2>
-      <Campo rotulo="Data do documento" htmlFor="data-documento">
+      <h2 className="font-semibold sm:col-span-3">
+        {oculto.has("contraparte") ? "Datas" : "Datas e partes"}
+        {edicao && " e situação"}
+      </h2>
+      <Campo rotulo={rotulo("data_documento", "Data do documento")} htmlFor="data-documento">
         <input id="data-documento" type="date" className="campo" value={dados.data_documento} onChange={(e) => definir("data_documento", e.target.value)} />
       </Campo>
-      <Campo rotulo="Validade / vencimento" htmlFor="data-validade" obrigatorio={tipo?.exige_validade} ajuda="Usada nos alertas de vencimento.">
+      {!oculto.has("data_validade") && (
+      <Campo
+        rotulo={rotulo("data_validade", "Validade / vencimento")}
+        htmlFor="data-validade"
+        obrigatorio={tipo?.exige_validade}
+        ajuda={
+          validadeSugerida ? (
+            <button type="button" onClick={() => definir("data_validade", validadeSugerida)} className="font-semibold text-primary-dark hover:underline">
+              Usar {formatarData(validadeSugerida)} (+{config.validade_padrao_dias} dias)
+            </button>
+          ) : (
+            "Usada nos alertas de vencimento."
+          )
+        }
+      >
         <input
           id="data-validade"
           type="date"
@@ -341,6 +422,8 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
           onChange={(e) => definir("data_validade", e.target.value)}
         />
       </Campo>
+      )}
+      {!oculto.has("data_validade") && (
       <Campo rotulo="Avisar quantos dias antes" htmlFor="aviso-dias" ajuda="Quando o documento passa a contar como “a vencer”.">
         <input
           id="aviso-dias"
@@ -352,6 +435,24 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
           onChange={(e) => definir("aviso_dias", Number(e.target.value))}
         />
       </Campo>
+      )}
+      {!oculto.has("contraparte") && (
+        <Campo rotulo={rotulo("contraparte", "Contraparte (fornecedor, cliente...)")} htmlFor="contraparte" className="sm:col-span-3">
+          <div className="flex gap-2">
+            <select id="contraparte" className="campo" value={dados.contraparte_id} onChange={(e) => definir("contraparte_id", e.target.value)}>
+              <option value="">—</option>
+              {contrapartes.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nome_fantasia ? `${e.nome_fantasia} (${e.razao_social})` : e.razao_social}
+                </option>
+              ))}
+            </select>
+            <Botao variante="secundario" icone={Plus} onClick={() => setNovaEmpresa(true)}>
+              <span className="sr-only sm:not-sr-only">Nova</span>
+            </Botao>
+          </div>
+        </Campo>
+      )}
       {edicao && (
         <Campo rotulo="Status" htmlFor="status">
           <select id="status" className="campo" value={dados.status} onChange={(e) => definir("status", e.target.value as Dados["status"])}>
@@ -436,21 +537,6 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
           ))}
         </select>
       </Campo>
-      <Campo rotulo="Contraparte (fornecedor, cliente...)" htmlFor="contraparte" className="sm:col-span-2">
-        <div className="flex gap-2">
-          <select id="contraparte" className="campo" value={dados.contraparte_id} onChange={(e) => definir("contraparte_id", e.target.value)}>
-            <option value="">—</option>
-            {contrapartes.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nome_fantasia ? `${e.nome_fantasia} (${e.razao_social})` : e.razao_social}
-              </option>
-            ))}
-          </select>
-          <Botao variante="secundario" icone={Plus} onClick={() => setNovaEmpresa(true)}>
-            <span className="sr-only sm:not-sr-only">Nova</span>
-          </Botao>
-        </div>
-      </Campo>
       <Campo rotulo="Tags" className="sm:col-span-2">
         <SeletorTags selecionadas={dados.tags} aoMudar={(tags) => definir("tags", tags)} />
       </Campo>
@@ -463,6 +549,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
     return (
       <form onSubmit={aoEnviar} className="space-y-5">
         {erro !== null && <MensagemErro erro={erro} />}
+        {secaoTipo}
         {secaoIdentificacao}
         {secaoCampos}
         {secaoDatas}
@@ -505,9 +592,14 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
           {etapa === 1 && (
             <>
               {resumoArquivo}
-              {secaoIdentificacao}
-              {secaoCampos}
-              {secaoDatas}
+              {secaoTipo}
+              {tipo && (
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-5">
+                  {secaoIdentificacao}
+                  {secaoCampos}
+                  {secaoDatas}
+                </motion.div>
+              )}
             </>
           )}
           {etapa === 2 && (

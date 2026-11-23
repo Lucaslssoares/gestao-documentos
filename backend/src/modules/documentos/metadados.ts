@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HttpError } from "../../lib/errors.js";
-import { TIPOS_CAMPO, type CampoPersonalizado } from "../../types/dominio.js";
+import { FORMATOS_CAMPO, TIPOS_CAMPO, type CampoPersonalizado, type FormatoCampo } from "../../types/dominio.js";
 
 /** Esquema da definição de campos de um tipo de documento (cadastro de tipos pelo admin). */
 export const camposSchema = z
@@ -14,6 +14,11 @@ export const camposSchema = z
       tipo: z.enum(TIPOS_CAMPO),
       obrigatorio: z.boolean().default(false),
       opcoes: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
+      grupo: z.string().trim().max(40).optional(),
+      formato: z.enum(FORMATOS_CAMPO).optional(),
+      ajuda: z.string().trim().max(200).optional(),
+      placeholder: z.string().trim().max(80).optional(),
+      sufixo: z.string().trim().max(10).optional(),
     }),
   )
   .max(30)
@@ -48,6 +53,12 @@ export function validarMetadados(campos: CampoPersonalizado[], entrada: Record<s
       case "texto":
       case "texto_longo": {
         const texto = String(bruto).trim();
+        if (campo.tipo === "texto" && campo.formato) {
+          const normalizado = normalizarFormato(campo.formato, texto);
+          if (normalizado === null) erros.push(MENSAGEM_FORMATO[campo.formato](campo.rotulo));
+          else saida[campo.chave] = normalizado;
+          break;
+        }
         const limite = campo.tipo === "texto" ? 300 : 5000;
         if (texto.length > limite) erros.push(`"${campo.rotulo}" passa de ${limite} caracteres.`);
         else saida[campo.chave] = texto;
@@ -86,4 +97,50 @@ export function validarMetadados(campos: CampoPersonalizado[], entrada: Record<s
 
   if (erros.length > 0) throw new HttpError(400, erros.join(" "));
   return saida;
+}
+
+const MENSAGEM_FORMATO: Record<FormatoCampo, (rotulo: string) => string> = {
+  cnpj: (r) => `"${r}": CNPJ inválido.`,
+  chave_nfe: (r) => `"${r}": a chave de acesso tem 44 dígitos e o dígito verificador precisa conferir.`,
+  competencia: (r) => `"${r}": use o formato MM/AAAA.`,
+};
+
+/** Dígitos de um CNPJ válido (os dois dígitos verificadores conferem), ou null. */
+export function validarCnpj(valor: string): string | null {
+  const d = valor.replace(/\D/g, "");
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return null;
+  const dv = (base: string) => {
+    const pesos = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const resto = [...base].reduce((soma, c, i) => soma + Number(c) * pesos[i]!, 0) % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  const d1 = dv(d.slice(0, 12));
+  const d2 = dv(d.slice(0, 12) + d1);
+  return d.endsWith(`${d1}${d2}`) ? d : null;
+}
+
+/** Chave de acesso de NF-e/NFC-e/CT-e: 44 dígitos com DV módulo 11 (pesos 2 a 9), ou null. */
+export function validarChaveNfe(valor: string): string | null {
+  const d = valor.replace(/\D/g, "");
+  if (d.length !== 44) return null;
+  let soma = 0;
+  let peso = 2;
+  for (let i = 42; i >= 0; i--) {
+    soma += Number(d[i]) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const resto = soma % 11;
+  return Number(d[43]) === (resto < 2 ? 0 : 11 - resto) ? d : null;
+}
+
+/** Competência MM/AAAA (aceita MMAAAA), ou null. */
+export function validarCompetencia(valor: string): string | null {
+  const m = /^(\d{2})\/?(\d{4})$/.exec(valor.replace(/\s/g, ""));
+  return m && Number(m[1]) >= 1 && Number(m[1]) <= 12 ? `${m[1]}/${m[2]}` : null;
+}
+
+function normalizarFormato(formato: FormatoCampo, texto: string): string | null {
+  if (formato === "cnpj") return validarCnpj(texto);
+  if (formato === "chave_nfe") return validarChaveNfe(texto);
+  return validarCompetencia(texto);
 }
