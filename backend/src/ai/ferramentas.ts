@@ -4,6 +4,7 @@ import { z } from "zod";
 import { logger } from "../lib/logger.js";
 import { somenteDigitos, termoSeguro } from "../lib/http.js";
 import type { ProvedorEmbeddings } from "../processing/embeddings.js";
+import { pontosDeAtencao, type DocumentoParaAtencao } from "../modules/documentos/atencao.js";
 import { SITUACOES_DOCUMENTO, type CampoPersonalizado } from "../types/dominio.js";
 import type { RegistroFontes } from "./fontes.js";
 
@@ -349,7 +350,56 @@ export function criarFerramentas(deps: DepsFerramentas) {
       }),
   });
 
-  return [pesquisar, detalhar, listarCategorias, buscaSemantica, lerDocumento].map((ferramenta) => ({
+  const pendenciasEAtencao = betaZodTool({
+    name: "pendencias_e_atencao",
+    description:
+      "O que precisa de ação. Sem documento_id: a central de pendências (prazos e condicionantes, documentos a vencer ou vencidos, revisões periódicas e aprovações), por padrão só as do usuário. Com documento_id: as pendências daquele documento e o que falta nele (validade, responsável, campos obrigatórios, prazo de renovação, revisão ou aprovação atrasada).",
+    inputSchema: z.object({
+      documento_id: z.uuid().optional(),
+      escopo: z.enum(["minhas", "todas"]).optional().describe('"minhas" (padrão) ou "todas" as que o usuário pode ver.'),
+    }),
+    run: (input) =>
+      executar("pendencias_e_atencao", async () => {
+        if (!input.documento_id) {
+          const { data: itens, error } = await db.rpc("central_pendencias", { p_escopo: input.escopo ?? "minhas" });
+          if (error) throw error;
+          return ((itens ?? []) as Record<string, unknown>[]).slice(0, 40).map((i) => ({
+            tipo: i.tipo,
+            estado: i.estado,
+            item: i.titulo,
+            documento: i.documento_titulo,
+            documento_id: i.documento_id,
+            data: i.data,
+            dias: i.dias,
+            responsavel: i.responsavel_nome,
+          }));
+        }
+        const [doc, pendencias] = await Promise.all([
+          db.from("v_documentos").select("*").eq("id", input.documento_id).maybeSingle(),
+          db.from("documento_pendencias").select("titulo, prazo, concluida_em").eq("documento_id", input.documento_id),
+        ]);
+        if (doc.error) throw doc.error;
+        if (pendencias.error) throw pendencias.error;
+        if (!doc.data) return { encontrado: false, mensagem: "Documento não encontrado (ou sem acesso)." };
+        const { data: tipo, error } = await db.from("tipos_documento").select("nome, exige_validade, campos").eq("id", doc.data.tipo_id as string).single();
+        if (error) throw error;
+        const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Belem" });
+        return {
+          encontrado: true,
+          fonte: fonteDocumento(doc.data as DocumentoResumo),
+          aprovacao: doc.data.aprovacao,
+          aprovador: doc.data.aprovador_nome,
+          proxima_revisao: doc.data.proxima_revisao,
+          pendencias: (pendencias.data ?? []).map((p) => ({ pendencia: p.titulo, prazo: p.prazo, concluida: Boolean(p.concluida_em) })),
+          o_que_falta: pontosDeAtencao(
+            { ...(doc.data as unknown as DocumentoParaAtencao), tipo: tipo as DocumentoParaAtencao["tipo"], pendencias: pendencias.data ?? [] },
+            hoje,
+          ).map((p) => p.texto),
+        };
+      }),
+  });
+
+  return [pesquisar, detalhar, listarCategorias, buscaSemantica, lerDocumento, pendenciasEAtencao].map((ferramenta) => ({
     ...ferramenta,
     // Entrada da ferramenta chega em streaming (padrão recomendado com stream + ferramentas próprias).
     eager_input_streaming: true,

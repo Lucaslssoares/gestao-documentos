@@ -35,6 +35,28 @@ equipeRouter.get("/", async (req, res) => {
   res.json(data);
 });
 
+/**
+ * Quem pode aprovar documentos da pasta (raiz): administradores e gestores com acesso a ela.
+ * Usa a service role porque a RLS esconde os acessos dos outros usuários; devolve só id e nome.
+ */
+equipeRouter.get("/aprovadores", async (req, res) => {
+  const { userId } = ctx(req);
+  const { raiz } = z.object({ raiz: z.uuid() }).parse(req.query);
+  const { data, error } = await supabaseAdmin
+    .from("perfis")
+    .select("id, nome, papel, usuario_categorias(categoria_id)")
+    .eq("ativo", true)
+    .in("papel", ["admin", "gestor"])
+    .order("nome");
+  if (error) throw erroDoBanco(error, "usuário");
+  const aprovadores = (data ?? []).filter(
+    (p) =>
+      p.id !== userId &&
+      (p.papel === "admin" || ((p.usuario_categorias ?? []) as { categoria_id: string }[]).some((u) => u.categoria_id === raiz)),
+  );
+  res.json(aprovadores.map((p) => ({ id: p.id, nome: p.nome, papel: p.papel })));
+});
+
 /** Administração de usuários (somente admin). */
 export const usuariosRouter = Router();
 usuariosRouter.use(exigirPapel("admin"));

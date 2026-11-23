@@ -40,6 +40,18 @@ const schema = z.object({
   EMBEDDINGS_URL: z.url().optional(),
   EMBEDDINGS_LOTE: z.coerce.number().int().min(1).max(32).default(16),
   PROCESSAMENTO_CONCORRENCIA: z.coerce.number().int().min(1).max(8).default(2),
+
+  /** E-mail dos alertas (prazos, aprovação, nova versão). Sem SMTP_HOST os avisos ficam só no sistema. */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default("Gestão de Documentos <nao-responda@gestao-documentos.local>"),
+  /** Liga o agendador que verifica prazos de hora em hora. */
+  ALERTAS_ATIVOS: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
 });
 
 const resultado = schema.safeParse(process.env);

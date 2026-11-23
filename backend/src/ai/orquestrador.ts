@@ -11,12 +11,16 @@ const anthropic = env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_
 
 export const chatDisponivel = (): boolean => anthropic !== null;
 
+/** Cliente compartilhado com as outras funções de IA (null sem ANTHROPIC_API_KEY). */
+export const clienteClaude = anthropic;
+
 const ROTULOS: Record<string, string> = {
   pesquisar_documentos: "Pesquisando documentos",
   detalhar_documento: "Abrindo o documento",
   listar_categorias: "Consultando as categorias",
   busca_semantica: "Buscando no conteúdo dos arquivos",
   ler_documento: "Lendo o documento",
+  pendencias_e_atencao: "Verificando pendências",
 };
 
 export interface EventosChat {

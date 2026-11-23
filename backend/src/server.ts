@@ -1,3 +1,4 @@
+import { iniciarAgendador } from "./alertas/agendador.js";
 import { criarApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
@@ -16,6 +17,9 @@ filaProcessamento
   .retomarPendentes()
   .then((n) => n > 0 && logger.info(`${n} documento(s) pendente(s) retomado(s) para processamento`))
   .catch((err) => logger.error({ err }, "falha ao retomar documentos pendentes"));
+
+// Alertas por e-mail de prazos, revisões e aprovações (de hora em hora; precisa de SMTP).
+iniciarAgendador();
 
 function encerrar(sinal: string) {
   logger.info(`${sinal} recebido, encerrando...`);
