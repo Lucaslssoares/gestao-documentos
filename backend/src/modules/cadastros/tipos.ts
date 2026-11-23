@@ -8,7 +8,7 @@ import { slug } from "../documentos/arquivos.js";
 
 export const tiposRouter = Router();
 
-const CAMPOS = "id, codigo, nome, descricao, categoria_padrao_id, campos, exige_validade, ativo, ordem";
+const CAMPOS = "id, codigo, nome, descricao, categoria_padrao_id, campos, exige_validade, exige_aprovacao, revisao_meses, ativo, ordem";
 
 tiposRouter.get("/", async (req, res) => {
   const { db } = ctx(req);
@@ -30,6 +30,8 @@ const tipoSchema = z.object({
   categoria_padrao_id: uuidOpcional,
   campos: camposSchema.default([]),
   exige_validade: z.boolean().default(false),
+  exige_aprovacao: z.boolean().default(false),
+  revisao_meses: z.coerce.number().int().min(1).max(120).nullish(),
   ativo: z.boolean().optional(),
   ordem: z.coerce.number().int().min(0).max(9999).optional(),
 });

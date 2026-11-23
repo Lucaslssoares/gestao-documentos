@@ -13,14 +13,21 @@ Login → Painel → Documentos → Categorias/Pastas → Documento → Históri
 | **Organização** | Categoria e subcategoria (até 3 níveis), tipo, tags, empresa/filial, setor responsável, contraparte, responsável, datas, status |
 | **Localização** | Pesquisa por palavras no nome, nos campos e **no conteúdo do arquivo**, sem diferenciar acentos, mais filtros por categoria, tipo, empresa, tags, situação e período |
 | **Controle** | Histórico de quem enviou, alterou, moveu, substituiu (versões), visualizou, baixou, excluiu e restaurou; lixeira; acesso por categoria e perfil |
-| **Inteligência** | Assistente de IA que responde com base nos documentos e cita as fontes (RAG com pgvector) |
+| **Prazos e pendências** | Pendências ligadas ao documento (condicionantes, prazos de renovação, entregas) com responsável e prazo; antecedência do aviso por documento; central "Minhas pendências"; alertas por e-mail até alguém concluir |
+| **Aprovação e revisão** | Aprovador escolhido no cadastro (o tipo pode exigir); nova versão volta para aprovação; revisão periódica ("revisar a cada N meses"); aviso de nova versão a quem consultou o documento |
+| **Inteligência** | Assistente de IA que responde com base nos documentos e cita as fontes (RAG com pgvector); "Preencher com IA" no cadastro; "O que falta" em cada documento |
+| **Lista mestra** | Exportação (CSV para Excel) dos documentos controlados com versão, situação, aprovação, validade e próxima revisão |
 
-## Interface
+## Interface (navegação Hub-and-Spoke)
 
-- **Busca global (Ctrl+K ou /)** em qualquer tela: documentos em tempo real (nome, campos e conteúdo do arquivo), pastas e ações rápidas, com navegação pelo teclado.
-- **Barra lateral** (recolhível) com acesso direto às pastas e contadores de vencimento; no celular, menu lateral e barra inferior com botão de envio.
-- **Explorador de documentos**: caminho de pastas, subpastas em cartões, atalhos de situação (vigentes, a vencer, vencidos), lista ou grade e filtros em painel lateral.
-- **Painel**: indicadores, pastas com volume de documentos, enviados recentemente, próximos vencimentos e atalhos para o assistente.
+O **Início é o hub**: busca, "Minhas pendências", enviados recentemente e um cartão por módulo. Cada módulo (Documentos, Pendências, Assistente IA, Lixeira, Configurações) abre em tela cheia com **"← Início"** no topo; para trocar de módulo, volta-se ao hub. Não há menu lateral.
+
+- **Busca global (Ctrl+K ou /)** em qualquer tela: documentos em tempo real (nome, campos e conteúdo do arquivo), pastas e ações rápidas.
+- **Documentos**: caminho de pastas, subpastas, atalhos de situação, lista ou grade, filtros, "Novo documento" já na pasta aberta e **exportar lista mestra**.
+- **Documento**: visualização, versões e histórico; na lateral, **o que falta**, **prazos e pendências**, informações (validade, revisão, aprovação); faixa de aprovação com Aprovar/Reprovar para o aprovador.
+- **Novo documento em 3 etapas**: arquivo → classificação (pode enviar daqui) → organização (aprovador, revisão, empresa, tags), com **Preencher com IA** quando o assistente está configurado.
+- **Pendências**: tudo o que pede ação, agrupado em atrasadas, próximas e depois; "Minhas" ou "Toda a equipe" (gestor/admin).
+- Cores: paleta da Belém Bioenergia (verde #7AA52A / #4E7A1C, laranja #E14E0D), sem logotipo.
 
 ## Arquitetura
 
@@ -111,7 +118,7 @@ cd backend && npm run seed:demo
 Outros endereços úteis:
 - Console do MinIO: http://localhost:9001.
 - Supabase Studio: http://localhost:54323.
-- E-mails de convite (Mailpit): http://localhost:54324.
+- E-mails (Mailpit): http://localhost:54324 — convites e também os **alertas de prazos, aprovações e nova versão** (SMTP local na porta 54325; no `.env`: `SMTP_HOST=host.docker.internal` e `SMTP_PORT=54325` para o backend no Docker, ou `SMTP_HOST=127.0.0.1` rodando fora dele). Sem `SMTP_HOST` os avisos ficam só na tela Pendências; o agendador confere os prazos de hora em hora.
 
 ### Tudo em Docker
 
@@ -127,7 +134,7 @@ O Supabase continua pela CLI (`npx supabase start`). O backend no container o ac
 ```bash
 cd backend && npm run lint && npm run typecheck && npm test
 cd frontend && npm run lint && npm test && npm run build
-npx supabase test db             # RLS: acesso por categoria e perfil, lixeira, histórico, pesquisa
+npx supabase test db             # RLS: acesso por categoria e perfil, pendências, lixeira, histórico, pesquisa
 ```
 
 O GitHub Actions (`.github/workflows/ci.yml`) roda tudo isso a cada push ou PR, sobe o banco com as migrations para os testes pgTAP e, na `main`, publica as imagens no GitHub Container Registry.

@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Download, Pencil, RefreshCw, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, CalendarCheck2, ChevronRight, Download, Info as IconeInfo, Pencil, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { AreaUpload } from "../components/documentos/AreaUpload";
+import { CartaoPendencias } from "../components/documentos/CartaoPendencias";
+import { FaixaAprovacao } from "../components/documentos/FaixaAprovacao";
 import { IconeArquivo, SituacaoBadge, StatusProcessamentoTexto } from "../components/documentos/Indicadores";
 import { LinhaDoTempo } from "../components/documentos/LinhaDoTempo";
 import { VisualizadorArquivo } from "../components/documentos/VisualizadorArquivo";
@@ -12,7 +14,7 @@ import { Abas, Campo, Carregando, MensagemErro, Selo } from "../components/ui/Ba
 import { Modal } from "../components/ui/Modal";
 import { api, salvarArquivo } from "../lib/api";
 import { chaves } from "../lib/consultas";
-import { formatarCampo, formatarData, formatarDataHora, formatarTamanho, tempoRelativo, textoPrazo } from "../lib/format";
+import { formatarCampo, formatarData, formatarDataHora, formatarTamanho, ROTULO_APROVACAO, tempoRelativo, textoPrazo } from "../lib/format";
 import type { DocumentoDetalhe, EventoHistorico } from "../lib/tipos";
 
 type Aba = "arquivo" | "versoes" | "historico";
@@ -63,6 +65,16 @@ export default function DocumentoPage() {
     onError: (err) => toast.error(err.message),
   });
 
+  const revisar = useMutation({
+    mutationFn: () => api(`/documentos/${id}/revisar`, { method: "POST" }),
+    onSuccess: () => {
+      toast.success("Revisão registrada. A próxima já foi agendada.");
+      void queryClient.invalidateQueries({ queryKey: chaves.documento(id) });
+      void queryClient.invalidateQueries({ queryKey: chaves.pendencias });
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   if (documento.isLoading) return <Carregando />;
   if (documento.error) return <MensagemErro erro={documento.error} />;
   const d = documento.data;
@@ -82,6 +94,8 @@ export default function DocumentoPage() {
         </Link>
       </nav>
 
+      <FaixaAprovacao documento={d} />
+
       <div className="cartao mb-5 flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 gap-4">
           <span
@@ -95,6 +109,7 @@ export default function DocumentoPage() {
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <SituacaoBadge situacao={d.situacao} dias={d.dias_para_vencer} detalhado />
               <Selo>{d.tipo_nome}</Selo>
+              {d.aprovacao === "aprovado" && <Selo className="bg-success-soft text-success">Aprovado</Selo>}
               {d.tags.map((t) => (
                 <Selo key={t.id} cor={t.cor}>
                   {t.nome}
@@ -130,6 +145,26 @@ export default function DocumentoPage() {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <aside className="space-y-4 lg:order-last">
+          {d.atencao.length > 0 && (
+            <section className="cartao p-4" aria-labelledby="titulo-atencao">
+              <h2 id="titulo-atencao" className="mb-2 font-semibold">O que falta</h2>
+              <ul className="space-y-2 text-sm">
+                {d.atencao.map((p) => (
+                  <li key={p.codigo} className="flex gap-2">
+                    {p.nivel === "alerta" ? (
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-ink" aria-hidden />
+                    ) : (
+                      <IconeInfo className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
+                    )}
+                    <span className={p.nivel === "alerta" ? "text-ink" : "text-ink-muted"}>{p.texto}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <CartaoPendencias documento={d} />
+
           <section className="cartao p-4">
             <h2 className="mb-3 font-semibold">Informações</h2>
             <dl className="grid gap-2.5 text-sm">
@@ -142,7 +177,30 @@ export default function DocumentoPage() {
               <Info rotulo="Validade">
                 {formatarData(d.data_validade)}
                 {prazo && <span className={d.situacao === "vencido" ? "text-danger" : "text-warning-ink"}> · {prazo}</span>}
+                {d.data_validade && <span className="block text-xs text-ink-muted">aviso {d.aviso_dias} dias antes</span>}
               </Info>
+              {(d.proxima_revisao || d.revisao_meses) && (
+                <Info rotulo="Revisão periódica">
+                  {d.proxima_revisao ? `próxima em ${formatarData(d.proxima_revisao)}` : "—"}
+                  {d.revisao_meses && <span className="block text-xs text-ink-muted">a cada {d.revisao_meses} mes(es)</span>}
+                  {d.permissoes.editar && (
+                    <button
+                      type="button"
+                      onClick={() => revisar.mutate()}
+                      disabled={revisar.isPending}
+                      className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary-dark hover:underline disabled:opacity-50"
+                    >
+                      <CalendarCheck2 className="size-3.5" aria-hidden /> Marcar como revisado hoje
+                    </button>
+                  )}
+                </Info>
+              )}
+              {d.aprovacao !== "nao_exige" && (
+                <Info rotulo="Aprovação">
+                  {ROTULO_APROVACAO[d.aprovacao]}
+                  {d.aprovador_nome && <span className="block text-xs text-ink-muted">aprovador: {d.aprovador_nome}</span>}
+                </Info>
+              )}
               <Info rotulo="Enviado por">
                 {d.criado_por_nome ?? "Sistema"} em {formatarDataHora(d.criado_em)}
               </Info>

@@ -121,7 +121,7 @@ function ConteudoPaleta({ aoFechar, termoInicial }: { aoFechar: () => void; term
           ]
         : []),
       ...(podeCadastrar ? [{ id: "novo", grupo: "Ações" as const, titulo: "Enviar novo documento", destino: "/documentos/novo", icone: FilePlus2 }] : []),
-      { id: "venc", grupo: "Ações" as const, titulo: "Ver vencimentos", destino: "/vencimentos", icone: CalendarClock },
+      { id: "venc", grupo: "Ações" as const, titulo: "Minhas pendências e vencimentos", destino: "/pendencias", icone: CalendarClock },
       ...(ehGestorOuAdmin
         ? [
             { id: "lixeira", grupo: "Ações" as const, titulo: "Abrir a lixeira", destino: "/lixeira", icone: Trash2 },

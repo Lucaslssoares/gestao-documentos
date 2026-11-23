@@ -85,6 +85,21 @@ export async function salvarArquivo(documentoId: string, nomeArquivo: string, ve
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/** Baixa um arquivo gerado pela API (ex.: lista mestra em CSV) com o token da sessão. */
+export async function baixarDaApi(caminho: string, nomePadrao: string): Promise<void> {
+  const res = await fetch(`${BASE}${caminho}`, { headers: await cabecalhos() });
+  if (!res.ok) await tratarErro(res);
+  const nome = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? nomePadrao;
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nome;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 /** Lê um stream Server-Sent Events de um POST (o EventSource nativo só faz GET). */
 export async function postSse(
   caminho: string,

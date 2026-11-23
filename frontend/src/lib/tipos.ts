@@ -47,6 +47,8 @@ export interface TipoDocumento {
   categoria_padrao_id: string | null;
   campos: CampoPersonalizado[];
   exige_validade: boolean;
+  exige_aprovacao: boolean;
+  revisao_meses: number | null;
   ativo: boolean;
   ordem: number;
 }
@@ -132,9 +134,22 @@ export interface DocumentoResumo {
   criado_por_nome: string | null;
   criado_em: string;
   atualizado_em: string;
+  aviso_dias: number;
+  aprovacao: Aprovacao;
+  aprovador_id: string | null;
+  aprovador_nome: string | null;
+  aprovacao_solicitada_em: string | null;
+  aprovado_em: string | null;
+  comentario_aprovacao: string | null;
+  revisao_meses: number | null;
+  proxima_revisao: string | null;
+  ultima_revisao: string | null;
+  pendencias_abertas: number;
   relevancia?: number;
   encontrado_no_conteudo?: boolean;
 }
+
+export type Aprovacao = "nao_exige" | "pendente" | "aprovado" | "reprovado";
 
 export interface Versao {
   id: string;
@@ -147,9 +162,65 @@ export interface Versao {
 }
 
 export interface DocumentoDetalhe extends DocumentoResumo {
-  tipo: Pick<TipoDocumento, "id" | "nome" | "campos" | "exige_validade">;
+  tipo: Pick<TipoDocumento, "id" | "nome" | "campos" | "exige_validade" | "exige_aprovacao" | "revisao_meses">;
   versoes: Versao[];
-  permissoes: { editar: boolean; excluir: boolean };
+  pendencias: Pendencia[];
+  atencao: PontoAtencao[];
+  permissoes: { editar: boolean; excluir: boolean; aprovar: boolean };
+}
+
+/** Ação ligada a um documento (prazo, condicionante, entrega...). */
+export interface Pendencia {
+  id: string;
+  documento_id: string;
+  titulo: string;
+  descricao: string | null;
+  prazo: string | null;
+  aviso_dias: number;
+  responsavel_id: string | null;
+  responsavel_nome: string | null;
+  concluida_em: string | null;
+  criado_em: string;
+}
+
+export interface PontoAtencao {
+  codigo: string;
+  nivel: "alerta" | "info";
+  texto: string;
+}
+
+export type TipoItemCentral = "acao" | "validade" | "revisao" | "aprovacao";
+
+/** Linha da central de pendências. */
+export interface ItemCentral {
+  tipo: TipoItemCentral;
+  chave: string;
+  documento_id: string;
+  documento_titulo: string;
+  raiz_nome: string;
+  raiz_cor: string | null;
+  titulo: string;
+  data: string | null;
+  dias: number | null;
+  estado: "atrasado" | "proximo" | "futuro";
+  responsavel_id: string | null;
+  responsavel_nome: string | null;
+  pendencia_id: string | null;
+  minha: boolean;
+}
+
+/** Sugestão de classificação feita pela IA (o usuário confere antes de enviar). */
+export interface SugestaoClassificacao {
+  titulo: string;
+  tipo_id: string | null;
+  categoria_id: string | null;
+  data_documento: string | null;
+  data_validade: string | null;
+  contraparte_id: string | null;
+  tag_ids: string[];
+  metadados: Record<string, string>;
+  justificativa: string;
+  texto_parcial: boolean;
 }
 
 export interface ResultadoPesquisa {
@@ -177,6 +248,7 @@ export interface Painel {
     erros_processamento: number;
     pendencias: number;
     enviados_ultimos_30d: number;
+    minhas_pendencias: number;
   };
   categorias: { id: string; nome: string; icone: string | null; cor: string | null; total: number }[];
   recentes: DocumentoResumo[];

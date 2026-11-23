@@ -14,6 +14,7 @@ import { chatRouter } from "./modules/chat/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
 import { documentosRouter } from "./modules/documentos/routes.js";
 import { historicoRouter } from "./modules/historico/routes.js";
+import { pendenciasRouter } from "./modules/pendencias/routes.js";
 import { equipeRouter, meRouter, usuariosRouter } from "./modules/usuarios/routes.js";
 
 export function criarApp() {
@@ -47,6 +48,7 @@ export function criarApp() {
   api.use("/me", meRouter);
   api.use("/dashboard", dashboardRouter);
   api.use("/documentos", documentosRouter);
+  api.use("/pendencias", pendenciasRouter);
   api.use("/categorias", categoriasRouter);
   api.use("/tipos-documento", tiposRouter);
   api.use("/empresas", empresasRouter);

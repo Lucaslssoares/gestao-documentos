@@ -335,6 +335,45 @@ async function principal() {
   }
 
   console.log(`\n${criados} documento(s) de demonstração criado(s).`);
+  await demonstrarPendencias();
+}
+
+/** Pendências, aprovação e revisão de exemplo (central de pendências e alertas). Idempotente. */
+async function demonstrarPendencias() {
+  const idPorTitulo = async (titulo: string) =>
+    ((await supabaseAdmin.from("documentos").select("id").eq("titulo", titulo).maybeSingle()).data?.id as string | undefined) ?? null;
+
+  const PENDENCIAS = [
+    { documento: "Procuração — representação junto à SEFAZ-PA", titulo: "Renovar a procuração com o escritório fiscal", prazo: dia(-2), aviso_dias: 15, responsavel_id: JURIDICO },
+    { documento: "Contrato de frete e logística regional — Norte Log", titulo: "Protocolar aditivo de renovação", prazo: dia(12), aviso_dias: 30, responsavel_id: JURIDICO },
+    { documento: "Contrato de frete e logística regional — Norte Log", titulo: "Conferir apólice do seguro de carga (condicionante)", prazo: dia(40), aviso_dias: 15, responsavel_id: JURIDICO },
+    { documento: "CRF FGTS — Norte Log", titulo: "Solicitar novo CRF ao fornecedor", prazo: dia(5), aviso_dias: 7, responsavel_id: ADMIN },
+  ];
+  let criadas = 0;
+  for (const p of PENDENCIAS) {
+    const documentoId = await idPorTitulo(p.documento);
+    if (!documentoId) continue;
+    const { data: existe } = await supabaseAdmin.from("documento_pendencias").select("id").eq("documento_id", documentoId).eq("titulo", p.titulo).maybeSingle();
+    if (existe) continue;
+    const { error } = await supabaseAdmin.from("documento_pendencias").insert({ documento_id: documentoId, titulo: p.titulo, prazo: p.prazo, aviso_dias: p.aviso_dias, responsavel_id: p.responsavel_id, criado_por: ADMIN });
+    if (error) throw error;
+    criadas++;
+  }
+
+  // Contrato aguardando aprovação do administrador e contrato com revisão periódica chegando.
+  const agroPara = await idPorTitulo("Contrato de fornecimento de insumos agrícolas — AgroPará");
+  if (agroPara) {
+    await supabaseAdmin
+      .from("documentos")
+      .update({ aprovacao: "pendente", aprovador_id: ADMIN, aprovacao_solicitada_em: new Date(Date.now() - 2 * 86_400_000).toISOString() })
+      .eq("id", agroPara)
+      .eq("aprovacao", "nao_exige");
+  }
+  const arcon = await idPorTitulo("Contrato de manutenção predial — Arcon");
+  if (arcon) {
+    await supabaseAdmin.from("documentos").update({ revisao_meses: 12, proxima_revisao: dia(20) }).eq("id", arcon).is("proxima_revisao", null);
+  }
+  console.log(`${criadas} pendência(s) de demonstração criada(s).`);
 }
 
 principal()

@@ -1,16 +1,17 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ChevronRight, Folder, LayoutGrid, List, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Folder, LayoutGrid, List, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { IconeCategoria } from "../components/documentos/Indicadores";
 import { GradeDocumentos, ListaDocumentos } from "../components/documentos/ListaDocumentos";
-import { Botao } from "../components/ui/Botao";
+import { Botao, BotaoIcone } from "../components/ui/Botao";
+import { toast } from "sonner";
 import { Campo, Carregando, EstadoVazio, MensagemErro, Selo } from "../components/ui/Basicos";
 import { Gaveta } from "../components/ui/Gaveta";
 import { Segmentado } from "../components/ui/Segmentado";
 import { useAuth } from "../contexts/AuthContext";
-import { api, qs } from "../lib/api";
+import { api, baixarDaApi, qs } from "../lib/api";
 import { achatarCategorias, chaves, useCategorias, useEmpresas, useSetores, useTags, useTipos } from "../lib/consultas";
 import { formatarData } from "../lib/format";
 import { usePreferencia } from "../lib/preferencias";
@@ -90,6 +91,20 @@ export default function DocumentosPage() {
   const subpastas = atual ? atual.filhos : (categorias.data ?? []);
   const mostrarPastas = !params.get("q") && pagina === 1 && subpastas.length > 0;
 
+  // Lista mestra: mesmos filtros da tela, sem paginação.
+  const [exportando, setExportando] = useState(false);
+  async function exportar() {
+    setExportando(true);
+    try {
+      const { pagina: _p, por_pagina: _pp, ...filtros } = consulta;
+      await baixarDaApi(`/documentos/lista-mestra${qs(filtros)}`, "lista-mestra.csv");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível exportar a lista.");
+    } finally {
+      setExportando(false);
+    }
+  }
+
   const totalPaginas = Math.max(1, Math.ceil((resultado.data?.total ?? 0) / POR_PAGINA));
   const ativos = FILTROS_GAVETA.filter((f) => params.get(f));
   const nomeFiltro: Record<FiltroGaveta, (v: string) => string> = {
@@ -148,6 +163,16 @@ export default function DocumentosPage() {
               { valor: "grade", rotulo: "Grade", icone: LayoutGrid },
             ]}
           />
+          <BotaoIcone icone={FileSpreadsheet} rotulo="Exportar lista mestra (Excel) com os filtros atuais" onClick={exportar} disabled={exportando} className="border border-line-soft bg-paper" />
+          {podeCadastrar && (
+            <Link
+              to={`/documentos/novo${atual ? `?categoria=${atual.id}` : ""}`}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white shadow-sm hover:bg-primary-deeper"
+              title={atual ? `Novo documento em ${atual.nome}` : "Novo documento"}
+            >
+              <Plus className="size-4" aria-hidden /> <span className="hidden sm:inline">Novo documento</span>
+            </Link>
+          )}
         </div>
       </div>
 

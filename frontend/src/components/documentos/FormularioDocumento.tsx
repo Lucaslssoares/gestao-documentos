@@ -1,14 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ArrowLeft, ArrowRight, Check, Plus, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Send, Sparkles } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../lib/api";
-import { achatarCategorias, chaves, useCategorias, useEmpresas, useEquipe, useSetores, useTipos } from "../../lib/consultas";
+import { achatarCategorias, chaves, useAprovadores, useCategorias, useChatDisponivel, useEmpresas, useEquipe, useSetores, useTipos } from "../../lib/consultas";
 import { formatarTamanho } from "../../lib/format";
-import type { DocumentoDetalhe } from "../../lib/tipos";
+import type { DocumentoDetalhe, SugestaoClassificacao } from "../../lib/tipos";
 import { Botao } from "../ui/Botao";
 import { Campo, Carregando, MensagemErro } from "../ui/Basicos";
 import { AreaUpload } from "./AreaUpload";
@@ -39,6 +39,9 @@ interface Dados {
   status: "ativo" | "arquivado" | "cancelado";
   metadados: Record<string, unknown>;
   tags: string[];
+  aviso_dias: number;
+  aprovador_id: string;
+  revisao_meses: string;
 }
 
 /** Formulário de cadastro (com arquivo) e de edição de um documento. */
@@ -75,7 +78,13 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
     status: documento?.status ?? "ativo",
     metadados: documento?.metadados ?? {},
     tags: documento?.tags.map((t) => t.id) ?? [],
+    aviso_dias: documento?.aviso_dias ?? 30,
+    aprovador_id: documento?.aprovador_id ?? "",
+    revisao_meses: documento?.revisao_meses ? String(documento.revisao_meses) : "",
   }));
+  const [sugestao, setSugestao] = useState<SugestaoClassificacao | null>(null);
+  const [sugerindo, setSugerindo] = useState(false);
+  const chat = useChatDisponivel();
   const definir = <K extends keyof Dados>(campo: K, valor: Dados[K]) => setDados((d) => ({ ...d, [campo]: valor }));
 
   // Só categorias em que o usuário pode cadastrar.
@@ -87,6 +96,8 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
   const contrapartes = empresas.data?.filter((e) => e.tipo !== "grupo") ?? [];
   const empresaSelecionada = empresas.data?.find((e) => e.id === dados.empresa_id);
   const tipo = tipos.data?.find((t) => t.id === dados.tipo_id);
+  const raizSelecionada = opcoesCategoria.find((c) => c.id === dados.categoria_id)?.raiz_id ?? null;
+  const aprovadores = useAprovadores(raizSelecionada);
 
   // Empresa do grupo padrão quando há só uma.
   if (!edicao && !dados.empresa_id && empresasGrupo.length === 1) definir("empresa_id", empresasGrupo[0]!.id);
@@ -97,8 +108,40 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
       const chaves = new Set(novo?.campos.map((c) => c.chave));
       const metadados = Object.fromEntries(Object.entries(d.metadados).filter(([k]) => chaves.has(k)));
       const sugerida = novo?.categoria_padrao_id && opcoesCategoria.some((c) => c.id === novo.categoria_padrao_id) ? novo.categoria_padrao_id : null;
-      return { ...d, tipo_id: tipoId, metadados, categoria_id: d.categoria_id || sugerida || "" };
+      // Revisão periódica: vem do tipo quando o documento ainda não tem uma definida.
+      const revisao = d.revisao_meses || (novo?.revisao_meses ? String(novo.revisao_meses) : "");
+      return { ...d, tipo_id: tipoId, metadados, categoria_id: d.categoria_id || sugerida || "", revisao_meses: revisao };
     });
+  }
+
+  /** "Preencher com IA": lê o arquivo e preenche o que encontrar; a pessoa confere antes de enviar. */
+  async function preencherComIa() {
+    if (!arquivo) return;
+    setSugerindo(true);
+    setErro(null);
+    try {
+      const form = new FormData();
+      form.append("arquivo", arquivo);
+      const s = await api<SugestaoClassificacao>("/documentos/sugerir", { method: "POST", body: form });
+      const novoTipo = tipos.data?.find((t) => t.id === s.tipo_id);
+      setDados((d) => ({
+        ...d,
+        titulo: s.titulo || d.titulo,
+        tipo_id: novoTipo?.id ?? d.tipo_id,
+        categoria_id: s.categoria_id && opcoesCategoria.some((c) => c.id === s.categoria_id) ? s.categoria_id : d.categoria_id,
+        data_documento: s.data_documento ?? d.data_documento,
+        data_validade: s.data_validade ?? d.data_validade,
+        contraparte_id: s.contraparte_id ?? d.contraparte_id,
+        tags: s.tag_ids.length ? [...new Set([...d.tags, ...s.tag_ids])] : d.tags,
+        metadados: { ...d.metadados, ...s.metadados },
+        revisao_meses: d.revisao_meses || (novoTipo?.revisao_meses ? String(novoTipo.revisao_meses) : ""),
+      }));
+      setSugestao(s);
+    } catch (err) {
+      setErro(err);
+    } finally {
+      setSugerindo(false);
+    }
   }
 
   function irPara(nova: number) {
@@ -141,6 +184,10 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
       if (!edicao) setEtapa(1);
       return setErro(new Error(`O tipo "${tipo.nome}" exige a data de validade.`));
     }
+    if (tipo?.exige_aprovacao && !dados.aprovador_id) {
+      if (!edicao) irPara(2);
+      return setErro(new Error(`O tipo "${tipo.nome}" exige aprovação: escolha quem vai aprovar.`));
+    }
 
     const campos = {
       titulo: dados.titulo.trim(),
@@ -154,6 +201,9 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
       responsavel_id: dados.responsavel_id,
       data_documento: dados.data_documento,
       data_validade: dados.data_validade,
+      aviso_dias: String(dados.aviso_dias || 30),
+      aprovador_id: dados.aprovador_id,
+      revisao_meses: dados.revisao_meses,
     };
 
     setSalvando(true);
@@ -179,6 +229,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
         queryClient.invalidateQueries({ queryKey: chaves.documentos }),
         queryClient.invalidateQueries({ queryKey: chaves.painel }),
         queryClient.invalidateQueries({ queryKey: chaves.categorias }),
+        queryClient.invalidateQueries({ queryKey: chaves.pendencias }),
         id ? queryClient.invalidateQueries({ queryKey: chaves.documento(id) }) : null,
       ]);
       navigate(`/documentos/${id}`, { replace: edicao });
@@ -217,7 +268,23 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
 
   const secaoIdentificacao = (
     <section className="cartao grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
-      <h2 className="font-semibold sm:col-span-2">Identificação</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2">
+        <h2 className="font-semibold">Identificação</h2>
+        {!edicao && arquivo && chat.data && (
+          <Botao variante="secundario" tamanho="sm" icone={Sparkles} carregando={sugerindo} onClick={preencherComIa}>
+            {sugerindo ? "Lendo o arquivo..." : "Preencher com IA"}
+          </Botao>
+        )}
+      </div>
+      {sugestao && (
+        <p role="status" className="flex gap-2 rounded-xl border border-primary/30 bg-success-faint px-3 py-2.5 text-sm sm:col-span-2">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-primary-dark" aria-hidden />
+          <span>
+            <span className="font-semibold">Preenchido pela IA — confira antes de enviar.</span> {sugestao.justificativa}
+            {sugestao.texto_parcial && " (A IA leu o início do arquivo.)"}
+          </span>
+        </p>
+      )}
       <Campo rotulo="Nome do documento" htmlFor="titulo" obrigatorio className="sm:col-span-2">
         <input id="titulo" required maxLength={300} className="campo" value={dados.titulo} onChange={(e) => definir("titulo", e.target.value)} />
       </Campo>
@@ -271,6 +338,17 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
           onChange={(e) => definir("data_validade", e.target.value)}
         />
       </Campo>
+      <Campo rotulo="Avisar quantos dias antes" htmlFor="aviso-dias" ajuda="Quando o documento passa a contar como “a vencer”.">
+        <input
+          id="aviso-dias"
+          type="number"
+          min={1}
+          max={365}
+          className="campo"
+          value={dados.aviso_dias}
+          onChange={(e) => definir("aviso_dias", Number(e.target.value))}
+        />
+      </Campo>
       {edicao && (
         <Campo rotulo="Status" htmlFor="status">
           <select id="status" className="campo" value={dados.status} onChange={(e) => definir("status", e.target.value as Dados["status"])}>
@@ -289,6 +367,32 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
         <h2 className="font-semibold">Organização</h2>
         {!edicao && <p className="text-sm text-ink-muted">Tudo aqui é opcional, mas ajuda a encontrar o documento depois.</p>}
       </div>
+      <Campo
+        rotulo="Aprovador"
+        htmlFor="aprovador"
+        obrigatorio={tipo?.exige_aprovacao}
+        ajuda={tipo?.exige_aprovacao ? `O tipo "${tipo.nome}" exige aprovação.` : "Opcional: o documento fica “em aprovação” até a pessoa aprovar."}
+      >
+        <select id="aprovador" className="campo" required={tipo?.exige_aprovacao} value={dados.aprovador_id} onChange={(e) => definir("aprovador_id", e.target.value)}>
+          <option value="">{tipo?.exige_aprovacao ? "Selecione..." : "Sem aprovação"}</option>
+          {(aprovadores.data ?? []).map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nome}
+            </option>
+          ))}
+        </select>
+      </Campo>
+      <Campo rotulo="Revisar a cada (meses)" htmlFor="revisao" ajuda="Para procedimentos e políticas. Vazio = sem revisão periódica.">
+        <input
+          id="revisao"
+          type="number"
+          min={1}
+          max={120}
+          className="campo"
+          value={dados.revisao_meses}
+          onChange={(e) => definir("revisao_meses", e.target.value)}
+        />
+      </Campo>
       <Campo rotulo="Empresa" htmlFor="empresa">
         <select id="empresa" className="campo" value={dados.empresa_id} onChange={(e) => setDados((d) => ({ ...d, empresa_id: e.target.value, filial_id: "" }))}>
           <option value="">—</option>

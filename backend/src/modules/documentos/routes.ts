@@ -8,9 +8,22 @@ import { logger } from "../../lib/logger.js";
 import { abrirArquivo, removerArquivo } from "../../lib/s3.js";
 import { filaProcessamento } from "../../processing/fila.js";
 import { SITUACOES_DOCUMENTO } from "../../types/dominio.js";
+import { hojeLocal } from "../../alertas/agendador.js";
+import { sugerirClassificacao } from "../../ai/sugerir.js";
 import { registrarEvento } from "../historico/service.js";
+import { CAMPOS_PENDENCIA, criarPendencia, formatarPendencia } from "../pendencias/routes.js";
 import { receberArquivo } from "./arquivos.js";
-import { atualizarDocumento, carregarDocumento, criarDocumento, dadosDocumentoSchema, substituirArquivo } from "./service.js";
+import { pontosDeAtencao, type DocumentoParaAtencao } from "./atencao.js";
+import { gerarCsvListaMestra, type LinhaListaMestra } from "./lista-mestra.js";
+import {
+  atualizarDocumento,
+  carregarDocumento,
+  criarDocumento,
+  dadosDocumentoSchema,
+  decidirAprovacao,
+  registrarRevisao,
+  substituirArquivo,
+} from "./service.js";
 
 export const documentosRouter = Router();
 
@@ -37,11 +50,9 @@ const filtros = paginacaoSchema.extend({
   ordem: z.enum(["relevancia", "recentes", "validade", "nome"]).optional(),
 });
 
-/** Pesquisa: palavras (metadados + conteúdo do arquivo) e filtros. */
-documentosRouter.get("/", async (req, res) => {
-  const { db } = ctx(req);
-  const f = filtros.parse(req.query);
-  const { data, error } = await db.rpc("pesquisar_documentos", {
+/** Filtros da tela → parâmetros de pesquisar_documentos (sem paginação). */
+function parametrosPesquisa(f: z.infer<typeof filtros>) {
+  return {
     p_termo: f.q ?? null,
     p_categoria: f.categoria ?? null,
     p_tipo: f.tipo ?? null,
@@ -58,11 +69,46 @@ documentosRouter.get("/", async (req, res) => {
     p_validade_de: f.validade_de ?? null,
     p_validade_ate: f.validade_ate ?? null,
     p_ordem: f.ordem ?? null,
+  };
+}
+
+/** Pesquisa: palavras (metadados + conteúdo do arquivo) e filtros. */
+documentosRouter.get("/", async (req, res) => {
+  const { db } = ctx(req);
+  const f = filtros.parse(req.query);
+  const { data, error } = await db.rpc("pesquisar_documentos", {
+    ...parametrosPesquisa(f),
     p_limite: f.por_pagina,
     p_deslocamento: (f.pagina - 1) * f.por_pagina,
   });
   if (error) throw erroDoBanco(error, "documento");
   res.json(data);
+});
+
+/** Lista mestra (CSV) com os mesmos filtros da pesquisa, até 5.000 documentos. */
+documentosRouter.get("/lista-mestra", async (req, res) => {
+  const { db, userId } = ctx(req);
+  const f = filtros.parse(req.query);
+  const linhas: LinhaListaMestra[] = [];
+  for (let deslocamento = 0; deslocamento < 5000; deslocamento += 100) {
+    const { data, error } = await db.rpc("pesquisar_documentos", {
+      ...parametrosPesquisa(f),
+      p_ordem: f.ordem ?? "nome",
+      p_limite: 100,
+      p_deslocamento: deslocamento,
+    });
+    if (error) throw erroDoBanco(error, "documento");
+    const pagina = (data as { itens: LinhaListaMestra[] }).itens;
+    linhas.push(...pagina);
+    if (pagina.length < 100) break;
+  }
+
+  void registrarEvento({ atorId: userId, acao: "exportar_lista_mestra", entidade: "documento", detalhes: { quantidade: linhas.length, filtros: req.query } });
+  const nome = `lista-mestra-${new Date().toISOString().slice(0, 10)}.csv`;
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${nome}"`);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.send(gerarCsvListaMestra(linhas));
 });
 
 /** Lixeira: documentos excluídos que o usuário pode restaurar (gestor/admin). */
@@ -79,35 +125,79 @@ documentosRouter.get("/lixeira", exigirPapel("admin", "gestor"), async (req, res
 });
 
 documentosRouter.get("/:id", async (req, res) => {
-  const { db, perfil } = ctx(req);
+  const { db, perfil, userId } = ctx(req);
   const { id } = idParam.parse(req.params);
 
-  const [documento, versoes] = await Promise.all([
+  const [documento, versoes, pendencias] = await Promise.all([
     db.from("v_documentos").select("*").eq("id", id).maybeSingle(),
     db
       .from("documento_versoes")
       .select("id, versao, nome_arquivo, mime_type, tamanho_bytes, comentario, enviado_por, enviado_em")
       .eq("documento_id", id)
       .order("versao", { ascending: false }),
+    db
+      .from("documento_pendencias")
+      .select(CAMPOS_PENDENCIA)
+      .eq("documento_id", id)
+      .order("concluida_em", { ascending: false, nullsFirst: true })
+      .order("prazo", { ascending: true, nullsFirst: false }),
   ]);
   if (documento.error) throw erroDoBanco(documento.error, "documento");
   if (!documento.data) throw new HttpError(404, "Documento não encontrado.");
   if (versoes.error) throw erroDoBanco(versoes.error, "versão");
+  if (pendencias.error) throw erroDoBanco(pendencias.error, "pendência");
 
   const { data: tipo, error: erroTipo } = await db
     .from("tipos_documento")
-    .select("id, nome, campos, exige_validade")
+    .select("id, nome, campos, exige_validade, exige_aprovacao, revisao_meses")
     .eq("id", documento.data.tipo_id as string)
     .single();
   if (erroTipo) throw erroDoBanco(erroTipo, "tipo de documento");
 
   const raiz = documento.data.raiz_id as string;
+  const listaPendencias = (pendencias.data ?? []).map(formatarPendencia);
+  const doc = documento.data as unknown as DocumentoParaAtencao & { aprovador_id: string | null };
   res.json({
     ...documento.data,
     tipo,
     versoes: versoes.data,
-    permissoes: { editar: podeEditar(perfil, raiz), excluir: podeExcluir(perfil, raiz) },
+    pendencias: listaPendencias,
+    atencao: pontosDeAtencao({ ...doc, tipo: tipo as DocumentoParaAtencao["tipo"], pendencias: listaPendencias as unknown as DocumentoParaAtencao["pendencias"] }, hojeLocal()),
+    permissoes: {
+      editar: podeEditar(perfil, raiz),
+      excluir: podeExcluir(perfil, raiz),
+      aprovar: doc.aprovacao === "pendente" && (doc.aprovador_id === userId || perfil.papel === "admin"),
+    },
   });
+});
+
+/** Nova pendência (prazo, condicionante, entrega...) no documento. */
+documentosRouter.post("/:id/pendencias", async (req, res) => {
+  const auth = ctx(req);
+  const { id } = idParam.parse(req.params);
+  res.status(201).json(await criarPendencia(auth, id, req.body));
+});
+
+/** Decisão de aprovação: {decisao: "aprovar" | "reprovar", comentario}. */
+documentosRouter.post("/:id/aprovar", async (req, res) => {
+  const auth = ctx(req);
+  const { id } = idParam.parse(req.params);
+  const { decisao, comentario } = z
+    .object({ decisao: z.enum(["aprovar", "reprovar"]), comentario: z.string().trim().max(1000).optional() })
+    .parse(req.body);
+  res.json(await decidirAprovacao(auth, id, decisao, comentario || null));
+});
+
+/** Registra a revisão periódica feita hoje. */
+documentosRouter.post("/:id/revisar", async (req, res) => {
+  const auth = ctx(req);
+  const { id } = idParam.parse(req.params);
+  res.json(await registrarRevisao(auth, id));
+});
+
+/** "Preencher com IA": lê o arquivo (ainda não salvo) e sugere a classificação para o usuário conferir. */
+documentosRouter.post("/sugerir", receberArquivo, async (req, res) => {
+  res.json(await sugerirClassificacao(ctx(req), req.file));
 });
 
 /** Upload: multipart/form-data com o campo "arquivo" + classificação do documento. */

@@ -81,6 +81,8 @@ export function ListaDocumentos({ documentos, ocultarPasta }: { documentos: Docu
               </span>
               <span className="flex flex-wrap items-center gap-2 pl-[3.25rem] lg:pl-0">
                 <SituacaoBadge situacao={d.situacao} />
+                {d.aprovacao === "pendente" && <span className="inline-flex rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">Em aprovação</span>}
+                {d.aprovacao === "reprovado" && <span className="inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Reprovado</span>}
                 <span className="text-xs text-ink-muted lg:hidden">{d.contraparte_nome ?? d.empresa_nome ?? d.categoria_caminho}</span>
               </span>
             </Link>
@@ -101,6 +103,8 @@ export function GradeDocumentos({ documentos }: { documentos: DocumentoResumo[] 
             <div className="flex items-start justify-between gap-3">
               <IconeDocumento d={d} grande />
               <SituacaoBadge situacao={d.situacao} dias={d.dias_para_vencer} detalhado />
+              {d.aprovacao === "pendente" && <span className="ml-1 inline-flex rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">Em aprovação</span>}
+              {d.aprovacao === "reprovado" && <span className="ml-1 inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Reprovado</span>}
             </div>
             <p className="mt-3 line-clamp-2 font-semibold">{d.titulo}</p>
             <p className="mt-0.5 truncate text-xs text-ink-muted">
