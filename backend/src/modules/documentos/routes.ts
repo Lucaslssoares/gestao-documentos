@@ -149,7 +149,7 @@ documentosRouter.get("/:id", async (req, res) => {
 
   const { data: tipo, error: erroTipo } = await db
     .from("tipos_documento")
-    .select("id, nome, campos, exige_validade, exige_aprovacao, revisao_meses")
+    .select("id, nome, campos, exige_validade, exige_aprovacao, revisao_meses, config")
     .eq("id", documento.data.tipo_id as string)
     .single();
   if (erroTipo) throw erroDoBanco(erroTipo, "tipo de documento");

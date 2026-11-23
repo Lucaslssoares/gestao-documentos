@@ -1,4 +1,6 @@
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -22,12 +24,17 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <App />
-          <Toaster position="top-right" richColors closeButton toastOptions={{ className: "font-sans" }} />
-        </AuthProvider>
-      </BrowserRouter>
+      {/* Animações respeitam "reduzir movimento" do sistema; dicas com atraso curto. */}
+      <MotionConfig reducedMotion="user">
+        <Tooltip.Provider delayDuration={250}>
+          <BrowserRouter>
+            <AuthProvider>
+              <App />
+              <Toaster position="top-right" richColors closeButton toastOptions={{ className: "font-sans" }} />
+            </AuthProvider>
+          </BrowserRouter>
+        </Tooltip.Provider>
+      </MotionConfig>
     </QueryClientProvider>
   </StrictMode>,
 );

@@ -8,7 +8,7 @@ import { logger } from "../../lib/logger.js";
 import { enviarArquivo, removerArquivo } from "../../lib/s3.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { filaProcessamento } from "../../processing/fila.js";
-import { STATUS_DOCUMENTO, type CampoPersonalizado } from "../../types/dominio.js";
+import { STATUS_DOCUMENTO, type CampoPersonalizado, type ConfigTipo } from "../../types/dominio.js";
 import type { ContextoAuth } from "../../types/express.js";
 import { gerarStorageKey, nomeOriginal, resolverMime, sha256 } from "./arquivos.js";
 import { validarMetadados } from "./metadados.js";
@@ -61,6 +61,7 @@ interface TipoComCampos {
   exige_validade: boolean;
   exige_aprovacao: boolean;
   revisao_meses: number | null;
+  config: ConfigTipo;
   ativo: boolean;
 }
 
@@ -98,7 +99,7 @@ interface CategoriaDestino {
 export async function carregarTipo(db: SupabaseClient, id: string): Promise<TipoComCampos> {
   const { data, error } = await db
     .from("tipos_documento")
-    .select("id, nome, campos, exige_validade, exige_aprovacao, revisao_meses, ativo")
+    .select("id, nome, campos, exige_validade, exige_aprovacao, revisao_meses, config, ativo")
     .eq("id", id)
     .maybeSingle();
   if (error) throw erroDoBanco(error, "tipo de documento");
@@ -148,6 +149,10 @@ export async function criarDocumento(
   const metadados = validarMetadados(tipo.campos, dados.metadados);
   const aprovador = dados.aprovador_id ? await validarAprovador(dados.aprovador_id, categoria.raiz_id, auth.userId) : null;
   const revisaoMeses = dados.revisao_meses !== undefined ? dados.revisao_meses : tipo.revisao_meses;
+  // O que não se aplica ao tipo (ex.: validade de nota fiscal) não é gravado.
+  const ocultar = new Set(tipo.config?.ocultar ?? []);
+  if (ocultar.has("data_validade")) dados.data_validade = null;
+  if (ocultar.has("contraparte")) dados.contraparte_id = null;
 
   const nomeArquivo = nomeOriginal(arquivo.originalname);
   const mime = resolverMime(nomeArquivo, arquivo.mimetype);
@@ -181,7 +186,7 @@ export async function criarDocumento(
         mime_type: mime,
         tamanho_bytes: arquivo.size,
         sha256: hash,
-        aviso_dias: dados.aviso_dias ?? 30,
+        aviso_dias: dados.aviso_dias ?? tipo.config?.aviso_padrao_dias ?? 30,
         aprovacao: aprovador ? "pendente" : "nao_exige",
         aprovador_id: aprovador?.id ?? null,
         aprovacao_solicitada_em: aprovador ? new Date().toISOString() : null,

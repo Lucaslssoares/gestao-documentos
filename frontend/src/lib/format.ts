@@ -1,4 +1,5 @@
 import type { Aprovacao, CampoPersonalizado, Papel, Situacao, StatusProcessamento, TipoItemCentral } from "./tipos";
+import { exibirFormato } from "./campos";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const numero = new Intl.NumberFormat("pt-BR");
@@ -27,8 +28,10 @@ export function formatarTamanho(bytes: number): string {
 }
 
 /** Valor de um campo personalizado formatado conforme o tipo. */
-export function formatarCampo(campo: Pick<CampoPersonalizado, "tipo">, valor: unknown): string {
+export function formatarCampo(campo: Pick<CampoPersonalizado, "tipo" | "formato" | "sufixo">, valor: unknown): string {
   if (valor === null || valor === undefined || valor === "") return "—";
+  if (campo.formato) return exibirFormato(campo.formato, String(valor));
+  if (campo.sufixo && campo.tipo === "numero") return `${typeof valor === "number" ? numero.format(valor) : String(valor)} ${campo.sufixo}`;
   switch (campo.tipo) {
     case "moeda":
       return formatarMoeda(valor);

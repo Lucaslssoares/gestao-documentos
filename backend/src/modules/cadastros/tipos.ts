@@ -8,7 +8,7 @@ import { slug } from "../documentos/arquivos.js";
 
 export const tiposRouter = Router();
 
-const CAMPOS = "id, codigo, nome, descricao, categoria_padrao_id, campos, exige_validade, exige_aprovacao, revisao_meses, ativo, ordem";
+const CAMPOS = "id, codigo, nome, descricao, categoria_padrao_id, campos, exige_validade, exige_aprovacao, revisao_meses, config, ativo, ordem";
 
 tiposRouter.get("/", async (req, res) => {
   const { db } = ctx(req);
@@ -32,6 +32,15 @@ const tipoSchema = z.object({
   exige_validade: z.boolean().default(false),
   exige_aprovacao: z.boolean().default(false),
   revisao_meses: z.coerce.number().int().min(1).max(120).nullish(),
+  config: z
+    .object({
+      rotulos: z.object({ data_documento: z.string().max(60), data_validade: z.string().max(60), contraparte: z.string().max(60) }).partial().optional(),
+      ocultar: z.array(z.enum(["data_validade", "contraparte"])).optional(),
+      aviso_padrao_dias: z.number().int().min(1).max(365).optional(),
+      validade_padrao_dias: z.number().int().min(1).max(3650).optional(),
+      dica: z.string().max(300).optional(),
+    })
+    .optional(),
   ativo: z.boolean().optional(),
   ordem: z.coerce.number().int().min(0).max(9999).optional(),
 });

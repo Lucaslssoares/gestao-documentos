@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { formatarData, formatarTamanho, tempoRelativo, textoPrazo } from "../../lib/format";
 import type { DocumentoResumo } from "../../lib/tipos";
 import { Selo } from "../ui/Basicos";
+import { Escalonado, ItemEscalonado } from "../ui/Movimento";
 import { IconeArquivo, SituacaoBadge } from "./Indicadores";
 
 function extensao(nome: string): string {
@@ -46,9 +47,9 @@ export function ListaDocumentos({ documentos, ocultarPasta }: { documentos: Docu
         <span>Validade</span>
         <span>Situação</span>
       </div>
-      <ul className="divide-y divide-line-soft">
+      <Escalonado as="ul" passo={0.03} className="divide-y divide-line-soft">
         {documentos.map((d) => (
-          <li key={d.id}>
+          <ItemEscalonado as="li" key={d.id}>
             <Link
               to={`/documentos/${d.id}`}
               className="grid gap-x-4 gap-y-1 px-4 py-3.5 transition-colors hover:bg-surface/60 sm:px-5 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1.2fr)_minmax(0,1.1fr)_7.5rem_7rem] lg:items-center"
@@ -86,9 +87,9 @@ export function ListaDocumentos({ documentos, ocultarPasta }: { documentos: Docu
                 <span className="text-xs text-ink-muted lg:hidden">{d.contraparte_nome ?? d.empresa_nome ?? d.categoria_caminho}</span>
               </span>
             </Link>
-          </li>
+          </ItemEscalonado>
         ))}
-      </ul>
+      </Escalonado>
     </div>
   );
 }
@@ -96,7 +97,7 @@ export function ListaDocumentos({ documentos, ocultarPasta }: { documentos: Docu
 /** Grade de cartões — boa para navegar visualmente pelas pastas. */
 export function GradeDocumentos({ documentos }: { documentos: DocumentoResumo[] }) {
   return (
-    <ul className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
+    <Escalonado as="ul" passo={0.03} className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
       {documentos.map((d) => (
         <li key={d.id}>
           <Link to={`/documentos/${d.id}`} className="cartao-interativo flex h-full flex-col p-4">
@@ -126,6 +127,6 @@ export function GradeDocumentos({ documentos }: { documentos: DocumentoResumo[] 
           </Link>
         </li>
       ))}
-    </ul>
+    </Escalonado>
   );
 }

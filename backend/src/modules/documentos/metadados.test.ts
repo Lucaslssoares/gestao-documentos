@@ -62,3 +62,26 @@ describe("camposSchema", () => {
     expect(resultado.error?.issues.map((i) => i.message)).toEqual(["Chave repetida: a", 'O campo "A2" precisa de opções.']);
   });
 });
+
+describe("formatos de campo", () => {
+  const campos = [
+    { chave: "cnpj", rotulo: "CNPJ", tipo: "texto" as const, formato: "cnpj" as const },
+    { chave: "chave", rotulo: "Chave", tipo: "texto" as const, formato: "chave_nfe" as const },
+    { chave: "comp", rotulo: "Competência", tipo: "texto" as const, formato: "competencia" as const },
+  ];
+
+  it("normaliza CNPJ, chave da NF-e e competência válidos", () => {
+    const saida = validarMetadados(campos, {
+      cnpj: "11.222.333/0001-81",
+      chave: "3526 1011 2223 3300 0181 5500 1000 0012 3410 0012 3453",
+      comp: "092026",
+    });
+    expect(saida).toEqual({ cnpj: "11222333000181", chave: "35261011222333000181550010000012341000123453", comp: "09/2026" });
+  });
+
+  it("recusa dígitos verificadores errados e competência inválida", () => {
+    expect(() => validarMetadados(campos, { cnpj: "11.222.333/0001-82" })).toThrow(/CNPJ inválido/);
+    expect(() => validarMetadados(campos, { chave: "35261011222333000181550010000012341000123454" })).toThrow(/44 dígitos/);
+    expect(() => validarMetadados(campos, { comp: "13/2026" })).toThrow(/MM\/AAAA/);
+  });
+});

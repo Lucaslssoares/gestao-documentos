@@ -1,11 +1,12 @@
 import { CircleCheckBig } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { ListaCentral } from "../components/pendencias/ListaCentral";
-import { Abas, CabecalhoPagina, Carregando, EstadoVazio, MensagemErro } from "../components/ui/Basicos";
+import { Abas, CabecalhoPagina, EstadoVazio, MensagemErro } from "../components/ui/Basicos";
 import { Segmentado } from "../components/ui/Segmentado";
 import { useAuth } from "../contexts/AuthContext";
 import { usePendencias } from "../lib/consultas";
 import { ROTULO_TIPO_ITEM } from "../lib/format";
+import { EsqueletoLista } from "../components/ui/Movimento";
 import type { ItemCentral, TipoItemCentral } from "../lib/tipos";
 
 type Escopo = "minhas" | "todas";
@@ -64,7 +65,7 @@ export default function PendenciasPage() {
           </div>
         </div>
 
-        {lista.isLoading && <Carregando />}
+        {lista.isLoading && <EsqueletoLista linhas={5} />}
         {lista.error && (
           <div className="p-4">
             <MensagemErro erro={lista.error} />

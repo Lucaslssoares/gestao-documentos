@@ -31,12 +31,30 @@ export interface Categoria {
   filhos: Categoria[];
 }
 
+export type FormatoCampo = "cnpj" | "chave_nfe" | "competencia";
+
 export interface CampoPersonalizado {
   chave: string;
   rotulo: string;
   tipo: TipoCampo;
   obrigatorio?: boolean;
   opcoes?: string[];
+  /** Seção do formulário (ex.: "Valores"). */
+  grupo?: string;
+  formato?: FormatoCampo;
+  ajuda?: string;
+  placeholder?: string;
+  /** Unidade mostrada no campo (ex.: "dias", "ha"). */
+  sufixo?: string;
+}
+
+/** Como o cadastro se adapta ao tipo (rótulos, o que não se aplica, sugestões). */
+export interface ConfigTipo {
+  rotulos?: { data_documento?: string; data_validade?: string; contraparte?: string };
+  ocultar?: ("data_validade" | "contraparte")[];
+  aviso_padrao_dias?: number;
+  validade_padrao_dias?: number;
+  dica?: string;
 }
 
 export interface TipoDocumento {
@@ -49,6 +67,7 @@ export interface TipoDocumento {
   exige_validade: boolean;
   exige_aprovacao: boolean;
   revisao_meses: number | null;
+  config: ConfigTipo;
   ativo: boolean;
   ordem: number;
 }
@@ -162,7 +181,7 @@ export interface Versao {
 }
 
 export interface DocumentoDetalhe extends DocumentoResumo {
-  tipo: Pick<TipoDocumento, "id" | "nome" | "campos" | "exige_validade" | "exige_aprovacao" | "revisao_meses">;
+  tipo: Pick<TipoDocumento, "id" | "nome" | "campos" | "exige_validade" | "exige_aprovacao" | "revisao_meses" | "config">;
   versoes: Versao[];
   pendencias: Pendencia[];
   atencao: PontoAtencao[];

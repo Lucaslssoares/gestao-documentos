@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { LoaderCircle, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Dica } from "./Dica";
 
 type Variante = "primario" | "secundario" | "fantasma" | "perigo";
 type Tamanho = "sm" | "md";
@@ -32,7 +33,7 @@ export function Botao({ variante = "primario", tamanho = "md", icone: Icone, car
       type="button"
       disabled={disabled || carregando}
       className={clsx(
-        "inline-flex shrink-0 items-center justify-center font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex shrink-0 items-center justify-center font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100",
         VARIANTES[variante],
         TAMANHOS[tamanho],
         className,
@@ -50,20 +51,21 @@ interface PropsIcone extends ButtonHTMLAttributes<HTMLButtonElement> {
   rotulo: string;
 }
 
-/** Botão só com ícone — o rótulo vira aria-label e dica. */
+/** Botão só com ícone — o rótulo vira aria-label e dica (tooltip animada do Radix). */
 export function BotaoIcone({ icone: Icone, rotulo, className, ...props }: PropsIcone) {
   return (
+    <Dica texto={rotulo}>
     <button
       type="button"
       aria-label={rotulo}
-      title={rotulo}
       className={clsx(
-        "inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface-2/70 hover:text-ink disabled:opacity-50",
+        "inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-[color,background-color,transform] duration-150 hover:bg-surface-2/70 hover:text-ink active:scale-90 disabled:opacity-50",
         className,
       )}
       {...props}
     >
       <Icone className="size-[18px]" aria-hidden />
     </button>
+    </Dica>
   );
 }

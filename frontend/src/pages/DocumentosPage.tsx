@@ -7,7 +7,7 @@ import { IconeCategoria } from "../components/documentos/Indicadores";
 import { GradeDocumentos, ListaDocumentos } from "../components/documentos/ListaDocumentos";
 import { Botao, BotaoIcone } from "../components/ui/Botao";
 import { toast } from "sonner";
-import { Campo, Carregando, EstadoVazio, MensagemErro, Selo } from "../components/ui/Basicos";
+import { Campo, EstadoVazio, MensagemErro, Selo } from "../components/ui/Basicos";
 import { Gaveta } from "../components/ui/Gaveta";
 import { Segmentado } from "../components/ui/Segmentado";
 import { useAuth } from "../contexts/AuthContext";
@@ -15,6 +15,7 @@ import { api, baixarDaApi, qs } from "../lib/api";
 import { achatarCategorias, chaves, useCategorias, useEmpresas, useSetores, useTags, useTipos } from "../lib/consultas";
 import { formatarData } from "../lib/format";
 import { usePreferencia } from "../lib/preferencias";
+import { EsqueletoLista } from "../components/ui/Movimento";
 import type { Categoria, ResultadoPesquisa, Situacao } from "../lib/tipos";
 
 const POR_PAGINA = 24;
@@ -267,7 +268,7 @@ export default function DocumentosPage() {
           </span>
           {atual && !params.get("q") && <span className="text-ink-muted">incluindo subpastas</span>}
         </div>
-        {resultado.isLoading && <Carregando />}
+        {resultado.isLoading && <EsqueletoLista linhas={6} />}
         {resultado.error && (
           <div className="p-4">
             <MensagemErro erro={resultado.error} />

@@ -3,6 +3,7 @@ import { BadgeCheck, CalendarClock, Check, ListChecks, RefreshCcw, type LucideIc
 import { Link } from "react-router";
 import { formatarData, ROTULO_TIPO_ITEM, textoDias } from "../../lib/format";
 import type { ItemCentral, TipoItemCentral } from "../../lib/tipos";
+import { Escalonado, ItemEscalonado } from "../ui/Movimento";
 import { useConcluirPendencia } from "./useConcluirPendencia";
 
 const ICONE: Record<TipoItemCentral, LucideIcon> = {
@@ -23,12 +24,12 @@ export function ListaCentral({ itens, mostrarResponsavel }: { itens: ItemCentral
   const concluir = useConcluirPendencia();
 
   return (
-    <ul className="divide-y divide-line-soft">
+    <Escalonado as="ul" passo={0.035} className="divide-y divide-line-soft">
       {itens.map((item) => {
         const Icone = ICONE[item.tipo];
         const prazo = item.tipo === "aprovacao" ? "aguardando" : (textoDias(item.dias) ?? "sem prazo");
         return (
-          <li key={item.chave} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+          <ItemEscalonado as="li" key={item.chave} className="group/item flex items-center gap-3 px-4 py-3 transition-colors hover:bg-success-faint/50 sm:px-5">
             <span className={clsx("flex size-9 shrink-0 items-center justify-center rounded-xl", ESTILO_ESTADO[item.estado])}>
               <Icone className="size-[18px]" aria-hidden />
             </span>
@@ -54,16 +55,16 @@ export function ListaCentral({ itens, mostrarResponsavel }: { itens: ItemCentral
                 type="button"
                 onClick={() => concluir.mutate({ id: item.pendencia_id!, concluida: true, documentoId: item.documento_id })}
                 disabled={concluir.isPending}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-line-soft text-ink-muted transition-colors hover:border-primary hover:bg-success-faint hover:text-primary-dark disabled:opacity-50"
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-line-soft bg-paper text-ink-muted transition-[color,background-color,border-color,transform] duration-150 hover:border-primary hover:bg-primary-dark hover:text-white active:scale-90 disabled:opacity-50"
                 aria-label={`Concluir: ${item.titulo}`}
                 title="Concluir"
               >
                 <Check className="size-4" aria-hidden />
               </button>
             )}
-          </li>
+          </ItemEscalonado>
         );
       })}
-    </ul>
+    </Escalonado>
   );
 }

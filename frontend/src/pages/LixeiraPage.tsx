@@ -3,11 +3,12 @@ import { RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Botao } from "../components/ui/Botao";
-import { CabecalhoPagina, Carregando, EstadoVazio, MensagemErro } from "../components/ui/Basicos";
+import { CabecalhoPagina, EstadoVazio, MensagemErro } from "../components/ui/Basicos";
 import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import { chaves } from "../lib/consultas";
+import { EsqueletoLista } from "../components/ui/Movimento";
 import { formatarDataHora } from "../lib/format";
 
 interface ItemLixeira {
@@ -57,7 +58,7 @@ export default function LixeiraPage() {
     <div>
       <CabecalhoPagina titulo="Lixeira" descricao="Documentos excluídos das categorias que você gerencia. Restaure ou, se for administrador, apague de vez." />
       <div className="cartao overflow-hidden">
-        {lixeira.isLoading && <Carregando />}
+        {lixeira.isLoading && <EsqueletoLista linhas={4} />}
         {lixeira.error && (
           <div className="p-4">
             <MensagemErro erro={lixeira.error} />
