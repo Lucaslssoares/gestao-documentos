@@ -11,7 +11,7 @@ const DocumentosPage = lazy(() => import("./pages/DocumentosPage"));
 const DocumentoPage = lazy(() => import("./pages/DocumentoPage"));
 const NovoDocumentoPage = lazy(() => import("./pages/NovoDocumentoPage"));
 const EditarDocumentoPage = lazy(() => import("./pages/EditarDocumentoPage"));
-const VencimentosPage = lazy(() => import("./pages/VencimentosPage"));
+const PendenciasPage = lazy(() => import("./pages/PendenciasPage"));
 const AssistentePage = lazy(() => import("./pages/AssistentePage"));
 const LixeiraPage = lazy(() => import("./pages/LixeiraPage"));
 const ConfiguracoesPage = lazy(() => import("./pages/ConfiguracoesPage"));
@@ -56,7 +56,9 @@ export function App() {
           <Route path="documentos/novo" element={<NovoDocumentoPage />} />
           <Route path="documentos/:id" element={<DocumentoPage />} />
           <Route path="documentos/:id/editar" element={<EditarDocumentoPage />} />
-          <Route path="vencimentos" element={<VencimentosPage />} />
+          <Route path="pendencias" element={<PendenciasPage />} />
+          {/* Endereço antigo: a tela de Vencimentos virou a central de pendências. */}
+          <Route path="vencimentos" element={<Navigate to="/pendencias?tipo=validade" replace />} />
           <Route path="assistente" element={<AssistentePage />} />
           <Route path="perfil" element={<PerfilPage />} />
           <Route

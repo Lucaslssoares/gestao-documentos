@@ -1,5 +1,12 @@
 import {
   ArrowRightLeft,
+  BadgeCheck,
+  BadgeX,
+  CalendarCheck2,
+  CircleCheck,
+  CirclePlus,
+  FileSpreadsheet,
+  Send,
   Download,
   Eye,
   FilePlus2,
@@ -27,6 +34,16 @@ const ACOES: Record<string, { rotulo: string; icone: LucideIcon }> = {
   excluir_definitivo: { rotulo: "excluiu definitivamente", icone: FileX2 },
   visualizar: { rotulo: "visualizou", icone: Eye },
   baixar: { rotulo: "baixou o arquivo", icone: Download },
+  solicitar_aprovacao: { rotulo: "pediu aprovação", icone: Send },
+  aprovar: { rotulo: "aprovou o documento", icone: BadgeCheck },
+  reprovar: { rotulo: "reprovou o documento", icone: BadgeX },
+  revisar: { rotulo: "registrou a revisão periódica", icone: CalendarCheck2 },
+  criar_pendencia: { rotulo: "criou a pendência", icone: CirclePlus },
+  atualizar_pendencia: { rotulo: "alterou a pendência", icone: Pencil },
+  concluir_pendencia: { rotulo: "concluiu a pendência", icone: CircleCheck },
+  reabrir_pendencia: { rotulo: "reabriu a pendência", icone: RotateCcw },
+  remover_pendencia: { rotulo: "removeu a pendência", icone: Trash2 },
+  exportar_lista_mestra: { rotulo: "exportou a lista mestra", icone: FileSpreadsheet },
 };
 
 export function LinhaDoTempo({ eventos }: { eventos: EventoHistorico[] }) {

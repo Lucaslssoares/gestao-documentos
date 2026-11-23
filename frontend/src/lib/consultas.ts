@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
-import type { Categoria, Empresa, MembroEquipe, Painel, Setor, Tag, TipoDocumento } from "./tipos";
+import type { Categoria, Empresa, ItemCentral, MembroEquipe, Painel, Setor, Tag, TipoDocumento } from "./tipos";
 
 // Dados de apoio (mudam pouco): cache de 5 minutos.
 const CINCO_MINUTOS = 5 * 60_000;
@@ -16,7 +16,34 @@ export const chaves = {
   documentos: ["documentos"] as const,
   documento: (id: string) => ["documento", id] as const,
   historico: (id: string) => ["historico", id] as const,
+  pendencias: ["pendencias"] as const,
+  aprovadores: (raiz: string) => ["aprovadores", raiz] as const,
+  chat: ["chat-status"] as const,
 };
+
+/** Central de pendências: minhas (padrão) ou todas (gestor/admin). */
+export function usePendencias(escopo: "minhas" | "todas" = "minhas") {
+  return useQuery({
+    queryKey: [...chaves.pendencias, escopo],
+    queryFn: () => api<{ itens: ItemCentral[] }>(`/pendencias?escopo=${escopo}`).then((r) => r.itens),
+    staleTime: 30_000,
+  });
+}
+
+/** Quem pode aprovar documentos da pasta (admins e gestores dela). */
+export function useAprovadores(raiz: string | null | undefined) {
+  return useQuery({
+    queryKey: chaves.aprovadores(raiz ?? ""),
+    queryFn: () => api<{ id: string; nome: string; papel: string }[]>(`/equipe/aprovadores?raiz=${raiz}`),
+    enabled: Boolean(raiz),
+    staleTime: CINCO_MINUTOS,
+  });
+}
+
+/** O assistente de IA está configurado no servidor? */
+export function useChatDisponivel() {
+  return useQuery({ queryKey: chaves.chat, queryFn: () => api<{ disponivel: boolean }>("/chat/status").then((r) => r.disponivel), staleTime: CINCO_MINUTOS });
+}
 
 /** Resumo do painel (também alimenta os contadores da barra lateral). */
 export function usePainel() {

@@ -26,6 +26,8 @@ interface Edicao {
   descricao: string;
   categoria_padrao_id: string;
   exige_validade: boolean;
+  exige_aprovacao: boolean;
+  revisao_meses: string;
   ativo: boolean;
   campos: (CampoPersonalizado & { opcoesTexto?: string })[];
 }
@@ -47,10 +49,12 @@ export function AbaTipos() {
             descricao: tipo.descricao ?? "",
             categoria_padrao_id: tipo.categoria_padrao_id ?? "",
             exige_validade: tipo.exige_validade,
+            exige_aprovacao: tipo.exige_aprovacao,
+            revisao_meses: tipo.revisao_meses ? String(tipo.revisao_meses) : "",
             ativo: tipo.ativo,
             campos: tipo.campos.map((c) => ({ ...c, opcoesTexto: c.opcoes?.join(", ") })),
           }
-        : { nome: "", descricao: "", categoria_padrao_id: "", exige_validade: false, ativo: true, campos: [] },
+        : { nome: "", descricao: "", categoria_padrao_id: "", exige_validade: false, exige_aprovacao: false, revisao_meses: "", ativo: true, campos: [] },
     );
   }
 
@@ -69,6 +73,8 @@ export function AbaTipos() {
         descricao: edicao.descricao,
         categoria_padrao_id: edicao.categoria_padrao_id,
         exige_validade: edicao.exige_validade,
+        exige_aprovacao: edicao.exige_aprovacao,
+        revisao_meses: edicao.revisao_meses ? Number(edicao.revisao_meses) : null,
         ativo: edicao.ativo,
         campos: edicao.campos.map(({ opcoesTexto, ...c }) => ({
           ...c,
@@ -111,6 +117,8 @@ export function AbaTipos() {
               <span className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{t.nome}</span>
                 {t.exige_validade && <Selo className="bg-warning-soft text-warning-ink">exige validade</Selo>}
+                {t.exige_aprovacao && <Selo className="bg-success-soft text-success">exige aprovação</Selo>}
+                {t.revisao_meses && <Selo>revisão a cada {t.revisao_meses} meses</Selo>}
                 {!t.ativo && <Selo>desativado</Selo>}
               </span>
               <span className="block truncate text-xs text-ink-muted">
@@ -160,6 +168,13 @@ export function AbaTipos() {
               <input type="checkbox" className="size-4 accent-primary-dark" checked={edicao.exige_validade} onChange={(e) => setEdicao({ ...edicao, exige_validade: e.target.checked })} />
               Exige data de validade
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" className="size-4 accent-primary-dark" checked={edicao.exige_aprovacao} onChange={(e) => setEdicao({ ...edicao, exige_aprovacao: e.target.checked })} />
+              Exige aprovação (quem envia escolhe o aprovador)
+            </label>
+            <Campo rotulo="Revisar a cada (meses)" htmlFor="tipo-revisao" ajuda="Padrão para novos documentos deste tipo. Vazio = sem revisão.">
+              <input id="tipo-revisao" type="number" min={1} max={120} className="campo" value={edicao.revisao_meses} onChange={(e) => setEdicao({ ...edicao, revisao_meses: e.target.value })} />
+            </Campo>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" className="size-4 accent-primary-dark" checked={edicao.ativo} onChange={(e) => setEdicao({ ...edicao, ativo: e.target.checked })} />
               Tipo ativo

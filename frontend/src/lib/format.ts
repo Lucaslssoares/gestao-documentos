@@ -1,4 +1,4 @@
-import type { CampoPersonalizado, Papel, Situacao, StatusProcessamento } from "./tipos";
+import type { Aprovacao, CampoPersonalizado, Papel, Situacao, StatusProcessamento, TipoItemCentral } from "./tipos";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const numero = new Intl.NumberFormat("pt-BR");
@@ -51,6 +51,29 @@ export const ROTULO_SITUACAO: Record<Situacao, string> = {
   arquivado: "Arquivado",
   cancelado: "Cancelado",
 };
+
+export const ROTULO_APROVACAO: Record<Aprovacao, string> = {
+  nao_exige: "Não exige aprovação",
+  pendente: "Em aprovação",
+  aprovado: "Aprovado",
+  reprovado: "Reprovado",
+};
+
+export const ROTULO_TIPO_ITEM: Record<TipoItemCentral, string> = {
+  acao: "Pendência",
+  validade: "Validade",
+  revisao: "Revisão",
+  aprovacao: "Aprovação",
+};
+
+/** "vence hoje", "em 5 dias", "há 3 dias" — prazo de uma pendência. */
+export function textoDias(dias: number | null | undefined): string | null {
+  if (dias === null || dias === undefined) return null;
+  if (dias === 0) return "hoje";
+  if (dias === 1) return "amanhã";
+  if (dias === -1) return "ontem";
+  return dias > 0 ? `em ${dias} dias` : `há ${-dias} dias`;
+}
 
 export const ROTULO_PAPEL: Record<Papel, string> = {
   admin: "Administrador",

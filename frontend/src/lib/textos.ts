@@ -61,6 +61,10 @@ const NOMES_CAMPOS: Record<string, string> = {
   data_validade: "validade",
   status: "status",
   metadados: "campos do tipo",
+  aviso_dias: "antecedência do aviso",
+  revisao_meses: "periodicidade da revisão",
+  aprovador_id: "aprovador",
+  aprovacao: "aprovação",
 };
 
 /** Resumo legível dos detalhes de um evento do histórico. */
@@ -85,6 +89,17 @@ export function detalheEvento(evento: EventoHistorico): string | null {
         .filter(Boolean);
       return campos.length ? campos.join(", ") : null;
     }
+    case "criar_pendencia":
+    case "atualizar_pendencia":
+    case "concluir_pendencia":
+    case "reabrir_pendencia":
+    case "remover_pendencia":
+      return typeof d.pendencia === "string" ? d.pendencia : null;
+    case "aprovar":
+    case "reprovar":
+      return typeof d.comentario === "string" && d.comentario ? `“${d.comentario}”` : null;
+    case "solicitar_aprovacao":
+      return typeof d.aprovador === "string" ? `para ${d.aprovador}` : null;
     case "visualizar":
     case "baixar":
       return typeof d.versao === "number" ? `versão ${d.versao}` : null;
