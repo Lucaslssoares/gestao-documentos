@@ -15,6 +15,7 @@ import { Modal } from "../components/ui/Modal";
 import { api, salvarArquivo } from "../lib/api";
 import { chaves } from "../lib/consultas";
 import { formatarCampo, formatarData, formatarDataHora, formatarTamanho, ROTULO_APROVACAO, tempoRelativo, textoPrazo } from "../lib/format";
+import { Entrada } from "../components/ui/Movimento";
 import type { DocumentoDetalhe, EventoHistorico } from "../lib/tipos";
 
 type Aba = "arquivo" | "versoes" | "historico";
@@ -75,7 +76,7 @@ export default function DocumentoPage() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (documento.isLoading) return <Carregando />;
+  if (documento.isLoading) return <EsqueletoDocumento />;
   if (documento.error) return <MensagemErro erro={documento.error} />;
   const d = documento.data;
   if (!d) return null;
@@ -144,7 +145,7 @@ export default function DocumentoPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-        <aside className="space-y-4 lg:order-last">
+        <Entrada atraso={0.08} className="space-y-4 lg:order-last">
           {d.atencao.length > 0 && (
             <section className="cartao p-4" aria-labelledby="titulo-atencao">
               <h2 id="titulo-atencao" className="mb-2 font-semibold">O que falta</h2>
@@ -240,7 +241,7 @@ export default function DocumentoPage() {
             </div>
             {d.erro_processamento && <p className="mt-2 text-xs text-ink-muted">{d.erro_processamento}</p>}
           </section>
-        </aside>
+        </Entrada>
 
         <section className="cartao min-w-0 p-3 sm:p-4">
           <Abas<Aba>
@@ -381,5 +382,28 @@ function SubstituirArquivoModal({
         </Campo>
       </div>
     </Modal>
+  );
+}
+
+/** Esqueleto da tela do documento enquanto carrega. */
+function EsqueletoDocumento() {
+  return (
+    <div role="status" aria-label="Carregando documento">
+      <span className="esqueleto mb-3 block h-4 w-60" />
+      <div className="cartao mb-5 flex gap-4 p-5">
+        <span className="esqueleto size-14 shrink-0 rounded-2xl" />
+        <span className="flex-1 space-y-3">
+          <span className="esqueleto block h-6 w-2/3" />
+          <span className="esqueleto block h-4 w-1/3" />
+        </span>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+        <span className="esqueleto block h-[28rem] rounded-[var(--radius-card)]" />
+        <span className="space-y-4">
+          <span className="esqueleto block h-40 rounded-[var(--radius-card)]" />
+          <span className="esqueleto block h-64 rounded-[var(--radius-card)]" />
+        </span>
+      </div>
+    </div>
   );
 }

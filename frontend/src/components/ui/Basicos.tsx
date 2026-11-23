@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { Inbox, LoaderCircle, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { motion } from "motion/react";
+import { useId, type ReactNode } from "react";
 
 export function Carregando({ texto = "Carregando...", className }: { texto?: string; className?: string }) {
   return (
@@ -103,6 +104,8 @@ export function Abas<T extends string>({
   ativa: T;
   aoTrocar: (id: T) => void;
 }) {
+  // O sublinhado da aba ativa desliza entre as abas (layoutId do motion).
+  const id = useId();
   return (
     <div role="tablist" className="rolagem-fina -mx-1 flex gap-1 overflow-x-auto border-b border-line-soft px-1">
       {abas.map((aba) => (
@@ -113,10 +116,11 @@ export function Abas<T extends string>({
           aria-selected={aba.id === ativa}
           onClick={() => aoTrocar(aba.id)}
           className={clsx(
-            "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-            aba.id === ativa ? "border-primary text-primary-dark" : "border-transparent text-ink-muted hover:text-ink",
+            "relative shrink-0 px-3 py-2.5 text-sm font-medium transition-colors",
+            aba.id === ativa ? "text-primary-dark" : "text-ink-muted hover:text-ink",
           )}
         >
+          {aba.id === ativa && <motion.span layoutId={`aba-${id}`} className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-primary" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
           {aba.rotulo}
           {aba.contador !== undefined && <span className="ml-1.5 rounded-full bg-surface-2 px-1.5 text-xs">{aba.contador}</span>}
         </button>

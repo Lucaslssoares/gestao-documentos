@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import { ArrowLeft, FolderOpen, ListChecks, LogOut, Search, Settings, Sparkles, Trash2, UserRound, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import * as Menu from "@radix-ui/react-dropdown-menu";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { PaletaProvider, usePaleta } from "../../contexts/PaletaContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -36,7 +38,10 @@ function Estrutura() {
     <div className="min-h-dvh">
       <BarraSuperior modulo={modulo} />
       <main className="mx-auto w-full max-w-7xl px-4 pt-5 pb-14 sm:px-6 lg:px-8 lg:pt-7">
-        <Outlet />
+        {/* Entrada curta a cada troca de tela (sem esperar a saída da anterior). */}
+        <motion.div key={local.pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}>
+          <Outlet />
+        </motion.div>
       </main>
     </div>
   );
@@ -67,12 +72,19 @@ export function Avatar({ nome, grande }: { nome: string; grande?: boolean }) {
 function BarraSuperior({ modulo }: { modulo: (typeof MODULOS)[number] | null }) {
   const { abrirPaleta } = usePaleta();
   const ehMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+  const [rolou, setRolou] = useState(false);
+  useEffect(() => {
+    const aoRolar = () => setRolou(window.scrollY > 4);
+    window.addEventListener("scroll", aoRolar, { passive: true });
+    return () => window.removeEventListener("scroll", aoRolar);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line-soft bg-paper/90 backdrop-blur-md">
+    <header className={clsx("sticky top-0 z-30 border-b bg-paper/80 backdrop-blur-xl transition-shadow duration-200", rolou ? "border-line-soft shadow-[0_6px_20px_-12px_rgb(28_38_22/0.25)]" : "border-transparent")}>
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <AnimatePresence mode="wait" initial={false}>
         {modulo ? (
-          <>
+          <motion.div key={modulo.prefixo} className="flex min-w-0 items-center gap-3" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.16 }}>
             <Link
               to="/"
               className="flex h-9 items-center gap-1.5 rounded-lg border border-line-soft bg-paper pr-3 pl-2 text-sm font-medium text-ink-muted shadow-xs transition-colors hover:border-primary/40 hover:bg-success-faint hover:text-primary-dark"
@@ -85,8 +97,9 @@ function BarraSuperior({ modulo }: { modulo: (typeof MODULOS)[number] | null }) 
               <modulo.icone className="size-[18px] shrink-0 text-primary-dark" aria-hidden />
               <span className="truncate">{modulo.titulo}</span>
             </span>
-          </>
+          </motion.div>
         ) : (
+          <motion.div key="hub" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.16 }}>
           <Link to="/" className="flex items-center gap-2.5" aria-label="Gestão de Documentos — início">
             <img src="/favicon.svg" alt="" className="size-9 rounded-xl" />
             <span className="hidden leading-tight sm:block">
@@ -94,7 +107,9 @@ function BarraSuperior({ modulo }: { modulo: (typeof MODULOS)[number] | null }) 
               <span className="block text-[15px] font-bold text-primary-dark">Documentos</span>
             </span>
           </Link>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         <div className="ml-auto flex items-center gap-1.5">
           <button
@@ -119,42 +134,24 @@ function BarraSuperior({ modulo }: { modulo: (typeof MODULOS)[number] | null }) 
 
 function MenuUsuario() {
   const { perfil, sair, ehAdmin, ehGestorOuAdmin } = useAuth();
-  const [aberto, setAberto] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const fechar = () => setAberto(false);
-
-  useEffect(() => {
-    if (!aberto) return;
-    const fora = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setAberto(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
-    document.addEventListener("mousedown", fora);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("mousedown", fora);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [aberto]);
-
-  const opcao = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink hover:bg-surface-2";
+  const opcao = "flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink outline-none data-[highlighted]:bg-surface-2";
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setAberto(!aberto)}
-        aria-haspopup="menu"
-        aria-expanded={aberto}
-        className="flex items-center gap-2 rounded-lg border border-line-soft bg-paper py-0.5 pr-1 pl-0.5 shadow-xs transition-colors hover:border-primary/40 hover:bg-success-faint sm:pl-2.5"
-      >
-        <span className="hidden min-w-0 flex-col items-end text-right leading-tight sm:flex">
-          <span className="max-w-40 truncate text-[13px] font-medium text-ink">{perfil?.nome}</span>
-          <span className="text-[11px] text-ink-muted">{perfil ? ROTULO_PAPEL[perfil.papel] : ""}</span>
-        </span>
-        <Avatar nome={perfil?.nome ?? ""} />
-      </button>
-
-      {aberto && (
-        <div role="menu" className="absolute top-full right-0 z-40 mt-2 w-60 animate-surgir rounded-xl border border-line-soft bg-paper p-1.5 shadow-[var(--shadow-elevated)]">
+    <Menu.Root modal={false}>
+      <Menu.Trigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-lg border border-line-soft bg-paper py-0.5 pr-1 pl-0.5 shadow-xs transition-[background-color,border-color,transform] duration-150 hover:border-primary/40 hover:bg-success-faint active:scale-[0.97] data-[state=open]:border-primary/40 data-[state=open]:bg-success-faint sm:pl-2.5"
+        >
+          <span className="hidden min-w-0 flex-col items-end text-right leading-tight sm:flex">
+            <span className="max-w-40 truncate text-[13px] font-medium text-ink">{perfil?.nome}</span>
+            <span className="text-[11px] text-ink-muted">{perfil ? ROTULO_PAPEL[perfil.papel] : ""}</span>
+          </span>
+          <Avatar nome={perfil?.nome ?? ""} />
+        </button>
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content align="end" sideOffset={8} className="menu-flutuante z-50 w-60">
           <div className="flex items-center gap-3 px-3 py-2.5">
             <Avatar nome={perfil?.nome ?? ""} />
             <span className="min-w-0">
@@ -162,21 +159,25 @@ function MenuUsuario() {
               <span className="block truncate text-xs text-ink-muted">{perfil?.email}</span>
             </span>
           </div>
-          <div className="my-1 h-px bg-line-soft" />
-          <Link to="/perfil" role="menuitem" onClick={fechar} className={opcao}>
-            <UserRound className="size-4 text-ink-muted" aria-hidden /> Meu perfil
-          </Link>
-          {ehGestorOuAdmin && (
-            <Link to="/configuracoes" role="menuitem" onClick={fechar} className={opcao}>
-              <Settings className="size-4 text-ink-muted" aria-hidden /> {ehAdmin ? "Configurações" : "Cadastros"}
+          <Menu.Separator className="my-1 h-px bg-line-soft" />
+          <Menu.Item asChild>
+            <Link to="/perfil" className={opcao}>
+              <UserRound className="size-4 text-ink-muted" aria-hidden /> Meu perfil
             </Link>
+          </Menu.Item>
+          {ehGestorOuAdmin && (
+            <Menu.Item asChild>
+              <Link to="/configuracoes" className={opcao}>
+                <Settings className="size-4 text-ink-muted" aria-hidden /> {ehAdmin ? "Configurações" : "Cadastros"}
+              </Link>
+            </Menu.Item>
           )}
-          <div className="my-1 h-px bg-line-soft" />
-          <button type="button" role="menuitem" onClick={sair} className={clsx(opcao, "text-danger hover:bg-danger-soft")}>
+          <Menu.Separator className="my-1 h-px bg-line-soft" />
+          <Menu.Item onSelect={sair} className={clsx(opcao, "text-danger data-[highlighted]:bg-danger-soft")}>
             <LogOut className="size-4" aria-hidden /> Sair
-          </button>
-        </div>
-      )}
-    </div>
+          </Menu.Item>
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }

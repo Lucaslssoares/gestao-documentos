@@ -46,6 +46,52 @@
 
   --animate-surgir: surgir 0.18s ease-out;
   --animate-deslizar: deslizar 0.22s ease-out;
+  --animate-brilho: brilho 1.6s ease-in-out infinite;
+  --animate-flutuar: flutuar 7s ease-in-out infinite;
+  --animate-gradiente: gradiente 14s ease infinite;
+}
+
+/* Esqueleto de carregamento: faixa de luz passando */
+@keyframes brilho {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes flutuar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Gradiente em movimento lento (login e destaque do Início) */
+@keyframes gradiente {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Menus e dicas do Radix: entram com escala/opacidade */
+@keyframes menu-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes surgir {
@@ -129,6 +175,23 @@
     @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/70
       transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/15
       disabled:cursor-not-allowed disabled:bg-surface-2/60;
+  }
+
+  .esqueleto {
+    @apply rounded-lg animate-brilho;
+    background-image: linear-gradient(90deg, var(--color-surface-2) 0%, #f7f9f3 50%, var(--color-surface-2) 100%);
+    background-size: 200% 100%;
+  }
+
+  .menu-flutuante {
+    @apply rounded-xl border border-line-soft bg-paper p-1.5 shadow-[var(--shadow-elevated)];
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+    animation: menu-entrar 0.16s ease-out;
+  }
+
+  .dica {
+    @apply rounded-lg bg-ink px-2.5 py-1.5 text-xs font-medium text-white shadow-lg;
+    animation: menu-entrar 0.12s ease-out;
   }
 
   .tecla {

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ArrowLeft, ArrowRight, Check, Plus, Send, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -63,6 +64,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
   const [salvando, setSalvando] = useState(false);
   const [etapa, setEtapa] = useState(0);
   const [alcancada, setAlcancada] = useState(0);
+  const [direcao, setDirecao] = useState(1);
   const [dados, setDados] = useState<Dados>(() => ({
     titulo: documento?.titulo ?? "",
     descricao: documento?.descricao ?? "",
@@ -145,6 +147,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
   }
 
   function irPara(nova: number) {
+    setDirecao(nova >= etapa ? 1 : -1);
     setErro(null);
     setEtapa(nova);
     setAlcancada((a) => Math.max(a, nova));
@@ -482,21 +485,39 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
       <Etapas atual={etapa} alcancada={alcancada} aoIr={irPara} />
       {erro !== null && <MensagemErro erro={erro} />}
 
-      {etapa === 0 && secaoArquivo}
-      {etapa === 1 && (
-        <>
-          {resumoArquivo}
-          {secaoIdentificacao}
-          {secaoCampos}
-          {secaoDatas}
-        </>
-      )}
-      {etapa === 2 && (
-        <>
-          {resumoArquivo}
-          {secaoOrganizacao}
-        </>
-      )}
+      {/* Cada etapa desliza para o lado (para frente ou para trás). */}
+      <AnimatePresence mode="wait" initial={false} custom={direcao}>
+        <motion.div
+          key={etapa}
+          custom={direcao}
+          variants={{
+            entra: (d: number) => ({ opacity: 0, x: d * 28 }),
+            centro: { opacity: 1, x: 0 },
+            sai: (d: number) => ({ opacity: 0, x: d * -28 }),
+          }}
+          initial="entra"
+          animate="centro"
+          exit="sai"
+          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+          className="space-y-5"
+        >
+          {etapa === 0 && secaoArquivo}
+          {etapa === 1 && (
+            <>
+              {resumoArquivo}
+              {secaoIdentificacao}
+              {secaoCampos}
+              {secaoDatas}
+            </>
+          )}
+          {etapa === 2 && (
+            <>
+              {resumoArquivo}
+              {secaoOrganizacao}
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* "Enviar" vem antes no HTML para ser o botão do Enter; a ordem visual é ajustada com CSS. */}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
@@ -558,7 +579,11 @@ function Etapas({ atual, alcancada, aoIr }: { atual: number; alcancada: number; 
                 <span className="block truncate text-xs text-ink-muted">{e.descricao}</span>
               </span>
             </button>
-            {i < ETAPAS.length - 1 && <span className={clsx("h-0.5 min-w-4 flex-1 rounded-full", feita ? "bg-primary" : "bg-line-soft")} aria-hidden />}
+            {i < ETAPAS.length - 1 && (
+              <span className="relative h-0.5 min-w-4 flex-1 overflow-hidden rounded-full bg-line-soft" aria-hidden>
+                <motion.span className="absolute inset-y-0 left-0 rounded-full bg-primary" initial={false} animate={{ width: feita ? "100%" : "0%" }} transition={{ duration: 0.35, ease: "easeOut" }} />
+              </span>
+            )}
           </li>
         );
       })}
