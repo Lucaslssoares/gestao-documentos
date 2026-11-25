@@ -5,7 +5,9 @@ import { provedorEmbeddings } from "../processing/embeddings.js";
 import type { ContextoAuth } from "../types/express.js";
 import { criarFerramentas } from "./ferramentas.js";
 import { RegistroFontes, type Fonte } from "./fontes.js";
-import { planejarBusca, semAcento, type FiltroDocumentos } from "./local-busca.js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { planejarBusca, semAcento, type FiltroDocumentos, type PlanoBusca } from "./local-busca.js";
+import { respostaChaveNaoEncontrada, respostaDeFicha, type DocumentoFicha, type TipoFicha } from "./local-respostas.js";
 import type { EventosChat, MensagemHistorico, RespostaChat } from "./orquestrador.js";
 
 /**
@@ -143,6 +145,16 @@ export async function responderLocal(opcoes: {
 
   eventos.status("Buscando nos seus documentos");
   const inicio = Date.now();
+
+  // Chave de nota ou um dado de um documento: ficha direto dos dados (instantâneo, sem modelo).
+  if (plano.ficha) {
+    const texto = await responderComFicha(auth.db, plano, fontes, rodar);
+    if (texto) {
+      eventos.texto(texto);
+      logger.info({ msBusca: Date.now() - inicio, direta: "ficha" }, "resposta da IA local");
+      return { texto, fontes: fontes.citadas(texto), ferramentas: usadas, recusado: false, uso };
+    }
+  }
   const [listas, conteudo, pendencias] = await Promise.all([
     Promise.all(plano.documentos.map((f: FiltroDocumentos) => rodar<{ documentos?: DocumentoEncontrado[] }>("pesquisar_documentos", f))),
     plano.conteudo ? rodar<{ trechos?: TrechoEncontrado[] }>("busca_semantica", { consulta: plano.conteudo, limite: 5 }) : null,
@@ -307,6 +319,55 @@ export async function responderLocal(opcoes: {
     if (citadas.length === 0) citadas = fontes.citadas(trechos[0] ? `[${trechos[0].fonte}]` : principal ? `[${principal.fonte}]` : "");
   }
   return { texto: final, fontes: citadas, ferramentas: usadas, recusado: false, uso };
+}
+
+/**
+ * Ficha do documento pedido: pela chave de acesso (busca exata) ou pelo mais relevante para
+ * as palavras da pergunta. Null quando a busca por palavras não acha nada (segue para o modelo).
+ */
+async function responderComFicha(
+  db: SupabaseClient,
+  plano: PlanoBusca,
+  fontes: RegistroFontes,
+  rodar: <T>(nome: string, entrada: unknown) => Promise<T | null>,
+): Promise<string | null> {
+  let encontrados: { id: string; titulo: string; fonte: string }[];
+  if (plano.chave) {
+    const { data, error } = await db
+      .from("v_documentos")
+      .select("id, titulo, tipo_nome, categoria_caminho")
+      .eq("metadados->>chave_acesso", plano.chave)
+      .limit(3);
+    if (error) throw error;
+    encontrados = (data ?? []).map((d) => ({
+      id: d.id as string,
+      titulo: d.titulo as string,
+      fonte: fontes.registrar(`documento:${d.id as string}`, {
+        tipo: "documento",
+        titulo: d.titulo as string,
+        detalhe: `${d.tipo_nome as string} — ${d.categoria_caminho as string}`,
+        documento_id: d.id as string,
+      }),
+    }));
+    if (encontrados.length === 0) return respostaChaveNaoEncontrada(plano.chave);
+  } else {
+    const lista = await rodar<{ documentos?: DocumentoEncontrado[] }>("pesquisar_documentos", plano.documentos[0]);
+    encontrados = (lista?.documentos ?? []).map((d) => ({ id: d.documento_id, titulo: d.titulo, fonte: d.fonte }));
+    if (encontrados.length === 0) return null;
+  }
+
+  const [principal, ...outros] = encontrados as [(typeof encontrados)[number], ...typeof encontrados];
+  const { data: doc, error } = await db.from("v_documentos").select("*").eq("id", principal.id).single();
+  if (error) throw error;
+  const { data: tipo, error: erroTipo } = await db.from("tipos_documento").select("campos, config").eq("id", doc.tipo_id as string).single();
+  if (erroTipo) throw erroTipo;
+  return respostaDeFicha({
+    doc: doc as DocumentoFicha,
+    tipo: tipo as TipoFicha,
+    atributo: plano.ficha ?? "geral",
+    fonte: principal.fonte,
+    outros: outros.slice(0, 2),
+  });
 }
 
 /** [singular, plural, feminino] para as respostas de listagem. */

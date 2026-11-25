@@ -25,6 +25,75 @@ export interface PlanoBusca {
   pendencias: boolean;
   /** Saudação/conversa sem pergunta sobre documentos. */
   saudacao: boolean;
+  /** Chave de acesso de nota (44 ou 50 dígitos) citada na pergunta: busca exata, sem modelo. */
+  chave?: string;
+  /**
+   * Pergunta sobre um dado de UM documento ("valor do contrato da AgroPará", "quando vence o
+   * contrato da Norte Log"): responde com a ficha do documento mais relevante, sem modelo.
+   */
+  ficha?: Atributo;
+}
+
+export type Atributo = "valor" | "validade" | "responsavel" | "contraparte" | "numero" | "geral";
+
+/** Ordem importa: o primeiro que casar define o destaque da resposta. */
+const ATRIBUTOS: [Atributo, RegExp][] = [
+  ["valor", /\bvalor|\bquanto (custa|custou|foi|e|vale)\b|\bpreco\b/],
+  ["validade", /\bvenc|\bvalidade\b|\bvigencia\b|\bate quando\b|\bexpira/],
+  ["responsavel", /\brespons[aá]ve/],
+  ["contraparte", /\bfornecedor\b|\bcontraparte\b|\bemitente\b|\bprestador\b|\bquem (emitiu|forneceu|presta)/],
+  ["numero", /\bnumero\b|\bn[o.º°] d[oa]\b/],
+  ["geral", /\b(me )?(informe|fale|fala|diga|conte) (sobre|d[oa]s?)\b|\binformac(ao|oes)\b|\bdetalhes\b|\bdados d[oa]s?\b|\bficha\b/],
+];
+
+/** Perguntas sobre o TEXTO do arquivo: estas vão para o modelo. */
+const SOBRE_TEXTO = /\bclausul|\bmulta|\bobrigac|\bresum|\bcondic|\bdiz\b|\bpenalid|\brescis|\bprevist|\bexplic|\bdo que (se )?trata/;
+
+/** Chave de acesso de NF-e/NFC-e/CT-e (44) ou NFS-e nacional (50) na pergunta, aceitando espaços e prefixo (NFS, NFe). */
+export function extrairChave(pergunta: string): string | null {
+  const compacta = pergunta.replace(/(?<=\d)[\s.\-/]+(?=\d)/g, "");
+  return /(?<!\d)(\d{50}|\d{44})(?!\d)/.exec(compacta)?.[1] ?? null;
+}
+
+export interface DadosChave {
+  modelo: string;
+  numero: string;
+  cnpj: string;
+  competencia: string;
+  municipio_ou_uf: string;
+  serie?: string;
+}
+
+const UF: Record<string, string> = {
+  "11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA", "16": "AP", "17": "TO", "21": "MA", "22": "PI", "23": "CE", "24": "RN",
+  "25": "PB", "26": "PE", "27": "AL", "28": "SE", "29": "BA", "31": "MG", "32": "ES", "33": "RJ", "35": "SP", "41": "PR", "42": "SC",
+  "43": "RS", "50": "MS", "51": "MT", "52": "GO", "53": "DF",
+};
+const MODELOS: Record<string, string> = { "55": "NF-e", "65": "NFC-e", "57": "CT-e", "58": "MDF-e" };
+
+/** O que a própria chave informa (sem consultar a SEFAZ). */
+export function decodificarChaveAcesso(chave: string): DadosChave | null {
+  if (chave.length === 44) {
+    return {
+      modelo: MODELOS[chave.slice(20, 22)] ?? `modelo ${chave.slice(20, 22)}`,
+      municipio_ou_uf: UF[chave.slice(0, 2)] ?? chave.slice(0, 2),
+      competencia: `${chave.slice(4, 6)}/20${chave.slice(2, 4)}`,
+      cnpj: chave.slice(6, 20),
+      serie: String(Number(chave.slice(22, 25))),
+      numero: String(Number(chave.slice(25, 34))),
+    };
+  }
+  if (chave.length === 50) {
+    // NFS-e nacional: município (7) · ambiente (1) · tipo de inscrição (1) · CNPJ/CPF (14) · número (13) · AAMM (4) · código (9) · DV (1)
+    return {
+      modelo: "NFS-e",
+      municipio_ou_uf: chave.slice(0, 7) === "1501402" ? "Belém/PA" : `município IBGE ${chave.slice(0, 7)}`,
+      cnpj: chave.slice(9, 23),
+      numero: String(Number(chave.slice(23, 36))),
+      competencia: `${chave.slice(38, 40)}/20${chave.slice(36, 38)}`,
+    };
+  }
+  return null;
 }
 
 const TIPOS: [RegExp, string][] = [
@@ -98,6 +167,11 @@ export function planejarBusca(pergunta: string, hoje: string): PlanoBusca {
   const saudacao = /^\s*(oi|ola|bom dia|boa tarde|boa noite|e ai|obrigad[oa]|valeu|tudo bem)[\s!.,?]*$/.test(p);
   if (saudacao) return { documentos: [], conteudo: null, pendencias: false, saudacao: true };
 
+  const atributo = ATRIBUTOS.find(([, r]) => r.test(p))?.[0];
+
+  const chave = extrairChave(pergunta);
+  if (chave) return { documentos: [], conteudo: null, pendencias: false, saudacao: false, chave, ficha: atributo ?? "geral" };
+
   const tipoEncontrado = TIPOS.find(([r]) => r.test(p));
   const tipo = tipoEncontrado?.[1];
 
@@ -116,6 +190,12 @@ export function planejarBusca(pergunta: string, hoje: string): PlanoBusca {
     filtro.ordem = "validade";
   }
   const termo = palavrasChave(pergunta, tipoEncontrado ? [tipoEncontrado[0]] : []);
+
+  // Um dado de um documento identificado por nome/número: ficha direto dos dados.
+  if (atributo && termo && !SOBRE_TEXTO.test(p) && !pendencias) {
+    return { documentos: [{ termo, tipo, ordem: "relevancia", limite: 4 }], conteudo: null, pendencias: false, saudacao: false, ficha: atributo };
+  }
+
   // Só o tipo ("contrato da Norte Log") não vira listagem: a busca por palavras já filtra pelo tipo.
   const temFiltro = Boolean(filtro.situacao || filtro.validade_ate || (filtro.tipo && !termo));
 
