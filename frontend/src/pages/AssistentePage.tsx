@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { FileText, LoaderCircle, MessageSquare, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { Cpu, FileText, LoaderCircle, MessageSquare, Plus, Send, ShieldCheck, Sparkles, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -8,11 +8,13 @@ import { TextoResposta } from "../components/assistente/TextoResposta";
 import { BotaoIcone } from "../components/ui/Botao";
 import { Carregando, MensagemErro } from "../components/ui/Basicos";
 import { api, postSse } from "../lib/api";
+import { useChatDisponivel } from "../lib/consultas";
 import { formatarDataHora } from "../lib/format";
 import type { Fonte, MensagemChat } from "../lib/tipos";
 
 const SUGESTOES = [
-  "Quais contratos vencem nos próximos 30 dias?",
+  "Quais são minhas pendências?",
+  "Quais contratos vencem nos próximos 60 dias?",
   "Encontre documentos relacionados ao fornecedor Norte Log.",
   "Qual é o valor do contrato C-2026-014?",
   "Resuma o aditivo do contrato C-2026-014.",
@@ -41,7 +43,8 @@ export default function AssistentePage() {
   const fim = useRef<HTMLDivElement>(null);
   const controle = useRef<AbortController | null>(null);
 
-  const disponivel = useQuery({ queryKey: ["chat-status"], queryFn: () => api<{ disponivel: boolean }>("/chat/status"), staleTime: 60_000 });
+  const disponivel = useChatDisponivel();
+  const local = disponivel.data?.provedor === "local";
   const conversas = useQuery({ queryKey: ["conversas"], queryFn: () => api<{ itens: Conversa[] }>("/chat/conversas").then((r) => r.itens) });
 
   // Abre uma conversa salva (ao trocar pela lista ou pelo link).
@@ -99,13 +102,16 @@ export default function AssistentePage() {
           else if (evento === "texto") {
             setStatus(null);
             atualizarUltima((m) => ({ ...m, conteudo: m.conteudo + String(d.delta) }));
-          } else if (evento === "fontes") atualizarUltima((m) => ({ ...m, fontes: d.fontes as Fonte[] }));
+          } else if (evento === "fontes")
+            atualizarUltima((m) => ({ ...m, fontes: d.fontes as Fonte[], conteudo: typeof d.texto === "string" && d.texto ? d.texto : m.conteudo }));
           else if (evento === "erro") atualizarUltima((m) => ({ ...m, conteudo: `⚠️ ${String(d.mensagem)}` }));
         },
         controle.current.signal,
       );
     } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        atualizarUltima((m) => ({ ...m, conteudo: m.conteudo ? `${m.conteudo}\n\n*(resposta interrompida)*` : "*Resposta interrompida.*" }));
+      } else {
         atualizarUltima((m) => ({ ...m, conteudo: `⚠️ ${err instanceof Error ? err.message : "Falha na conversa."}` }));
       }
     } finally {
@@ -135,7 +141,7 @@ export default function AssistentePage() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="hidden lg:block">
         <button
           type="button"
@@ -166,8 +172,17 @@ export default function AssistentePage() {
             <h1 className="font-semibold">
               Assistente IA <span className="ml-1 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold text-ink-muted">Beta</span>
             </h1>
-            <p className="truncate text-xs text-ink-muted">Responde com base nos documentos que você pode acessar, sempre citando as fontes.</p>
+            <p className="truncate text-xs text-ink-muted">Responde com base nos documentos das pastas que você acessa, citando as fontes.</p>
           </div>
+          {disponivel.data?.provedor && (
+            <span
+              title={local ? "Modelo rodando no servidor da empresa: os documentos não saem da rede." : "Respostas geradas pelo Claude (Anthropic)."}
+              className="hidden items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2.5 py-1 text-xs font-medium text-ink-muted sm:inline-flex"
+            >
+              {local ? <Cpu className="size-3.5 text-primary-dark" aria-hidden /> : <Sparkles className="size-3.5 text-primary-dark" aria-hidden />}
+              {local ? "IA local" : "Claude"}
+            </span>
+          )}
           {conversaId && (
             <BotaoIcone icone={Plus} rotulo="Nova conversa" className="lg:hidden" onClick={() => setParams({}, { replace: true })} />
           )}
@@ -175,7 +190,7 @@ export default function AssistentePage() {
 
         <div className="rolagem-fina flex-1 space-y-5 overflow-y-auto px-4 py-5" aria-live="polite">
           {disponivel.data?.disponivel === false && (
-            <MensagemErro erro={new Error("O assistente não está configurado no servidor (falta a chave ANTHROPIC_API_KEY).")} />
+            <MensagemErro erro={new Error("O assistente não está configurado no servidor (defina OLLAMA_URL para a IA local ou ANTHROPIC_API_KEY).")} />
           )}
           {historico.isLoading && <Carregando />}
 
@@ -183,7 +198,11 @@ export default function AssistentePage() {
             <div className="mx-auto max-w-lg py-6 text-center">
               <MessageSquare className="mx-auto size-10 text-primary" aria-hidden />
               <p className="mt-3 font-semibold">Pergunte, e o sistema responde com seus documentos.</p>
-              <p className="mt-1 text-sm text-ink-muted">Experimente:</p>
+              <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-ink-muted">
+                <ShieldCheck className="size-4 text-primary-dark" aria-hidden /> Só entram na resposta os documentos que você tem permissão para ver.
+              </p>
+              {local && <p className="mt-1 text-xs text-ink-muted">IA local: a primeira resposta pode levar um pouco mais enquanto o modelo carrega.</p>}
+              <p className="mt-4 text-sm text-ink-muted">Experimente:</p>
               <div className="mt-4 flex flex-col gap-2">
                 {SUGESTOES.map((s) => (
                   <button
@@ -269,14 +288,25 @@ export default function AssistentePage() {
             aria-label="Sua pergunta"
             className="campo max-h-40 min-h-11 resize-none"
           />
+          {respondendo ? (
+            <button
+              type="button"
+              onClick={() => controle.current?.abort()}
+              aria-label="Parar resposta"
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-paper text-ink hover:bg-surface-2"
+            >
+              <Square className="size-4 fill-current" aria-hidden />
+            </button>
+          ) : (
           <button
             type="submit"
-            disabled={!pergunta.trim() || respondendo || disponivel.data?.disponivel === false}
+            disabled={!pergunta.trim() || disponivel.data?.disponivel === false}
             aria-label="Enviar pergunta"
             className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-dark text-white hover:bg-primary-deeper disabled:opacity-50"
           >
             <Send className="size-5" aria-hidden />
           </button>
+          )}
         </form>
       </section>
     </div>

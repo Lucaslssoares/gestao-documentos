@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
-import { chatDisponivel, mensagemDeErro, responderPergunta, type MensagemHistorico } from "../../ai/orquestrador.js";
+import { chatDisponivel, clienteClaude, mensagemDeErro, provedorChat, responderPergunta, type MensagemHistorico } from "../../ai/orquestrador.js";
 import { semCitacoes } from "../../ai/fontes.js";
 import { ctx } from "../../middleware/auth.js";
 import { erroDoBanco, HttpError } from "../../lib/errors.js";
@@ -27,7 +27,8 @@ const perguntaSchema = z.object({
 });
 
 chatRouter.get("/status", (_req, res) => {
-  res.json({ disponivel: chatDisponivel() });
+  // "classificar" = sugestão de classificação no cadastro (só com o Claude).
+  res.json({ disponivel: chatDisponivel(), provedor: provedorChat(), classificar: clienteClaude !== null });
 });
 
 chatRouter.get("/conversas", async (req, res) => {
@@ -69,7 +70,7 @@ chatRouter.delete("/conversas/:id", async (req, res) => {
 chatRouter.post("/", limitador, async (req, res) => {
   const auth = ctx(req);
   const { db, userId } = auth;
-  if (!chatDisponivel()) throw new HttpError(503, "Chatbot não configurado: defina ANTHROPIC_API_KEY no servidor.");
+  if (!chatDisponivel()) throw new HttpError(503, "Assistente não configurado: defina OLLAMA_URL (IA local) ou ANTHROPIC_API_KEY no servidor.");
   const { conversa_id, mensagem } = perguntaSchema.parse(req.body);
 
   // Conversa existente (RLS: só do próprio usuário) ou nova.
@@ -156,7 +157,8 @@ chatRouter.post("/", limitador, async (req, res) => {
       },
     });
 
-    enviar("fontes", { fontes: resposta.fontes });
+    // O texto final (citações normalizadas) substitui o que veio em streaming.
+    enviar("fontes", { fontes: resposta.fontes, texto: resposta.texto });
     enviar("fim", { mensagem_id: salva?.id ?? null });
   } catch (err) {
     if (!controle.signal.aborted) {

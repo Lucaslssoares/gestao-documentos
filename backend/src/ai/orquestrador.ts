@@ -4,12 +4,16 @@ import { HttpError } from "../lib/errors.js";
 import { provedorEmbeddings } from "../processing/embeddings.js";
 import type { ContextoAuth } from "../types/express.js";
 import { criarFerramentas } from "./ferramentas.js";
+import { localDisponivel, responderLocal } from "./local.js";
 import { RegistroFontes, type Fonte } from "./fontes.js";
 import { contextoDaRequisicao, PROMPT_SISTEMA } from "./prompt.js";
 
 const anthropic = env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }) : null;
 
-export const chatDisponivel = (): boolean => anthropic !== null;
+/** Claude (com ANTHROPIC_API_KEY) ou IA local (Ollama). */
+export const provedorChat = (): "claude" | "local" | null => (anthropic ? "claude" : localDisponivel() ? "local" : null);
+
+export const chatDisponivel = (): boolean => provedorChat() !== null;
 
 /** Cliente compartilhado com as outras funções de IA (null sem ANTHROPIC_API_KEY). */
 export const clienteClaude = anthropic;
@@ -55,7 +59,8 @@ export async function responderPergunta(opcoes: {
   eventos: EventosChat;
   signal: AbortSignal;
 }): Promise<RespostaChat> {
-  if (!anthropic) throw new HttpError(503, "Chatbot não configurado: defina ANTHROPIC_API_KEY no servidor.");
+  // Sem chave do Claude, responde com a IA local (busca primeiro, modelo pequeno redige).
+  if (!anthropic) return responderLocal(opcoes);
   const { auth, eventos, signal } = opcoes;
 
   const fontes = new RegistroFontes();

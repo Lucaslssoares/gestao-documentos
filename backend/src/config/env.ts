@@ -36,6 +36,15 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-opus-5-5"),
 
+  /**
+   * IA local (Ollama) para o assistente quando não há ANTHROPIC_API_KEY.
+   * Sem OLLAMA_URL o chat fica indisponível nesse caso.
+   */
+  OLLAMA_URL: z.url().optional(),
+  OLLAMA_MODEL: z.string().default("qwen2.5:1.5b"),
+  /** Janela de contexto do modelo local (tokens). Maior = respostas com mais fontes, porém mais lentas em CPU. */
+  OLLAMA_CONTEXTO: z.coerce.number().int().min(2048).max(32768).default(4096),
+
   /** Padrão: Edge Function "embed" do próprio Supabase (gte-small). */
   EMBEDDINGS_URL: z.url().optional(),
   EMBEDDINGS_LOTE: z.coerce.number().int().min(1).max(32).default(16),

@@ -81,7 +81,7 @@ Novos usuários são **convidados** pelo administrador (Configurações → Usu�
 **Pré-requisitos:**
 - Node.js 24 ou 22.12+.
 - **Docker Desktop rodando**, usado pelo Supabase local e pelo MinIO.
-- Opcional: uma chave da API da Anthropic, só para o assistente.
+- Assistente: por padrão usa a IA local. Rode `docker compose up -d ollama ollama-init`: o init baixa o modelo de cerca de 1 GB na primeira vez. Opcionalmente, uma chave da API da Anthropic troca o modo local pelo Claude.
 
 ```bash
 # 1. Variáveis de ambiente
@@ -148,12 +148,18 @@ O GitHub Actions (`.github/workflows/ci.yml`) roda tudo isso a cada push ou PR, 
   - Modelo `gte-small`, gratuito e nativo do Supabase, rodando na Edge Function `supabase/functions/embed`.
   - Limitação: o modelo foi treinado em inglês e lê até 512 tokens. Por isso os trechos têm cerca de 1.000 caracteres e a busca do assistente é **híbrida** (vetor + texto em português, combinados por RRF).
   - O provedor fica atrás de uma interface (`backend/src/processing/embeddings.ts`). Trocar por um modelo multilíngue exige só reprocessar os documentos.
-- **Assistente** (`backend/src/ai/`):
-  - Usa o Claude (`claude-opus-5-5`) com ferramentas somente leitura: pesquisar documentos, detalhar documento, listar categorias, busca semântica e ler documento.
-  - Responde em streaming e cita as fontes como `[F1]`; na tela, cada citação abre o documento.
-  - Tem *fallback* automático em caso de recusa do modelo.
-  - Sem `ANTHROPIC_API_KEY`, o sistema funciona normalmente e só o assistente fica indisponível.
-- **LGPD/confidencialidade:** no chat, trechos dos documentos acessíveis ao usuário são enviados à API da Anthropic. Valide com o Jurídico quais categorias podem ser usadas pelo assistente.
+- **Assistente** (`backend/src/ai/`). Responde só com os documentos das pastas que o usuário acessa (RLS), em streaming, citando as fontes como `[F1]`. Na tela, cada citação abre o documento. Há dois modos:
+  - **IA local (padrão, sem custo e sem enviar dados para fora).** Usa o Ollama com o `qwen2.5:1.5b` (cerca de 1 GB, roda em CPU), no serviço `ollama` do `docker compose`. Fica ativo quando há `OLLAMA_URL` e não há `ANTHROPIC_API_KEY`.
+    - **Busca primeiro** (`local-busca.ts` e `local.ts`): o código decide o que consultar, como filtros de tipo e vencimento, palavras-chave, trechos do conteúdo e pendências. O modelo só redige a resposta com essas fontes.
+    - **Listagens sem modelo:** perguntas como "quais contratos vencem nos próximos 60 dias?", "certidões vencidas" ou "minhas pendências" são respondidas direto dos dados, em menos de 1 s.
+    - **Perguntas de conteúdo** ("o que diz a cláusula de multa…", "resuma o contrato X") levam de 15 s a 1 min em CPU de notebook. A primeira pergunta depois de ligar o computador demora mais, porque o modelo precisa carregar.
+    - **Citações:** o backend corrige citações trocadas pelo modelo pequeno, conferindo o nome do documento mencionado na frase.
+    - **Outro modelo:** em máquina com mais memória, `OLLAMA_MODEL=qwen2.5:3b` responde melhor. Para usá-lo, rode `docker compose exec ollama ollama pull qwen2.5:3b`.
+  - **Claude**, quando há `ANTHROPIC_API_KEY`. Usa o `claude-opus-5-5` com ferramentas somente leitura (pesquisar, detalhar, listar categorias, busca semântica, ler documento e pendências), com *fallback* automático se o modelo recusar. Também ativa o "Preencher com IA" no cadastro.
+  - Sem nenhum dos dois, o sistema funciona normalmente e só o assistente fica indisponível.
+- **LGPD/confidencialidade:**
+  - No modo local, nada sai do servidor.
+  - No modo Claude, trechos dos documentos acessíveis ao usuário são enviados à API da Anthropic. Valide com o Jurídico quais categorias podem ser usadas.
 
 ## Armazenamento (MinIO)
 

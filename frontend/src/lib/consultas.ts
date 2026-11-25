@@ -41,8 +41,15 @@ export function useAprovadores(raiz: string | null | undefined) {
 }
 
 /** O assistente de IA está configurado no servidor? */
+/** IA do sistema: chat (Claude ou IA local) e sugestão de classificação (só Claude). */
+export interface StatusIa {
+  disponivel: boolean;
+  provedor: "claude" | "local" | null;
+  classificar: boolean;
+}
+
 export function useChatDisponivel() {
-  return useQuery({ queryKey: chaves.chat, queryFn: () => api<{ disponivel: boolean }>("/chat/status").then((r) => r.disponivel), staleTime: CINCO_MINUTOS });
+  return useQuery({ queryKey: chaves.chat, queryFn: () => api<StatusIa>("/chat/status"), staleTime: CINCO_MINUTOS });
 }
 
 /** Resumo do painel (também alimenta os contadores da barra lateral). */

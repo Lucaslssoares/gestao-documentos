@@ -42,6 +42,30 @@ services:
       - ./infra/minio-init.sh:/init/minio-init.sh:ro
     restart: "no"
 
+  # IA local do assistente (sem API externa, roda em CPU). O modelo padrão é o qwen2.5:1.5b
+  # (~1 GB). Em máquina com folga de memória, qwen2.5:3b responde melhor (OLLAMA_MODEL no .env). O ollama-init baixa o modelo na primeira subida.
+  # Com ANTHROPIC_API_KEY definida no .env, o assistente usa o Claude no lugar deste.
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m # mantém o modelo carregado entre perguntas
+      OLLAMA_NUM_PARALLEL: 1
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-modelos:/root/.ollama
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    # Espera o servidor responder antes de baixar o modelo.
+    entrypoint: ["/bin/sh", "-c", "until ollama list >/dev/null 2>&1; do sleep 2; done; ollama pull ${OLLAMA_MODEL:-qwen2.5:1.5b}"]
+    restart: "no"
+
   # Em desenvolvimento as imagens são construídas aqui; no servidor, o CI publica no GHCR
   # e o deploy faz "docker compose pull" (defina GHCR_OWNER no .env do servidor).
   backend:
@@ -54,6 +78,8 @@ services:
       S3_ENDPOINT: http://minio:9000
       # Supabase local (CLI) roda no host; em produção use a URL do projeto no .env.
       SUPABASE_URL: ${SUPABASE_URL_DOCKER:-${SUPABASE_URL}}
+      # O Ollama do compose; fora do Docker o backend usa OLLAMA_URL do .env (localhost).
+      OLLAMA_URL: ${OLLAMA_URL_DOCKER:-http://ollama:11434}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -76,3 +102,4 @@ services:
 
 volumes:
   minio-dados:
+  ollama-modelos:
