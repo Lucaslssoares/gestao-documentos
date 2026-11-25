@@ -105,7 +105,9 @@ export default function DashboardPage() {
               className="mt-6 flex h-14 w-full max-w-2xl items-center gap-3 rounded-2xl bg-white/95 px-5 text-left text-ink shadow-lg ring-1 ring-white/40 backdrop-blur transition-shadow hover:shadow-2xl"
             >
               <Search className="size-5 text-primary-dark" aria-hidden />
-              <span className="flex-1 text-[15px] text-ink-muted">Pesquisar documentos — ex.: contrato fornecedor agrícola</span>
+              <span className="min-w-0 flex-1 truncate text-[15px] text-ink-muted">
+                Pesquisar documentos<span className="hidden sm:inline"> — ex.: contrato fornecedor agrícola</span>
+              </span>
               <kbd className="tecla hidden text-ink-muted sm:inline-flex">Ctrl K</kbd>
             </motion.button>
           </Entrada>
@@ -115,10 +117,14 @@ export default function DashboardPage() {
       {/* Números do dia */}
       <Escalonado as="section" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {numeros.map((n) => (
-          <ItemEscalonado key={n.rotulo}>
-            <Elevar>
-              <Link to={n.para} className="cartao group flex items-center gap-3.5 p-4 transition-colors hover:border-primary/40 sm:p-5">
-                <span className={clsx("flex size-11 shrink-0 items-center justify-center rounded-2xl", n.tom)}>
+          <ItemEscalonado key={n.rotulo} className="h-full">
+            <Elevar className="h-full">
+              {/* No celular (2 por linha) o ícone vai para cima e o texto ganha a largura toda. */}
+              <Link
+                to={n.para}
+                className="cartao group flex h-full flex-col items-start gap-2.5 p-4 transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:gap-3.5 sm:p-5"
+              >
+                <span className={clsx("flex size-10 shrink-0 items-center justify-center rounded-2xl sm:size-11", n.tom)}>
                   <n.icone className="size-5" aria-hidden />
                 </span>
                 <span className="min-w-0">
@@ -126,7 +132,7 @@ export default function DashboardPage() {
                     {n.valor === undefined ? <span className="esqueleto inline-block h-6 w-10 align-middle" /> : <Contador valor={n.valor} />}
                   </span>
                   <span className="mt-1 block text-sm font-medium">{n.rotulo}</span>
-                  <span className="block truncate text-xs text-ink-muted">{n.detalhe}</span>
+                  <span className="line-clamp-2 block text-xs text-ink-muted sm:truncate">{n.detalhe}</span>
                 </span>
               </Link>
             </Elevar>
@@ -150,8 +156,9 @@ export default function DashboardPage() {
 
       {painel.error && <MensagemErro erro={painel.error} />}
 
-      <div className="grid items-start gap-5 lg:grid-cols-5">
-        <Entrada atraso={0.15} className="cartao overflow-hidden lg:col-span-3">
+      {/* grid-cols-1 = minmax(0,1fr): sem isso a coluna cresce até a largura do gráfico no celular. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5">
+        <Entrada atraso={0.15} className="cartao min-w-0 overflow-hidden lg:col-span-3">
           <CabecalhoSecao titulo="Minhas pendências" para="/pendencias" contador={itens.length || undefined} />
           {pendencias.isLoading && <EsqueletoLista linhas={4} />}
           {pendencias.error && (
@@ -171,7 +178,7 @@ export default function DashboardPage() {
           {itens.length > 0 && <ListaCentral itens={itens.slice(0, 6)} />}
         </Entrada>
 
-        <div className="space-y-5 lg:col-span-2">
+        <div className="min-w-0 space-y-5 lg:col-span-2">
           <Entrada atraso={0.2} className="cartao p-5">
             <div className="mb-3 flex items-baseline justify-between">
               <h2 className="font-semibold">Documentos por pasta</h2>
