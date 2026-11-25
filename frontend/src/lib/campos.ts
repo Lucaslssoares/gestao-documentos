@@ -18,7 +18,7 @@ export function mascarar(formato: FormatoCampo, valor: string): string {
         .replace(/\.(\d{3})(\d)/, ".$1/$2")
         .replace(/(\d{4})(\d)/, "$1-$2");
     case "chave_nfe":
-      return d.slice(0, 44).replace(/(\d{4})(?=\d)/g, "$1 ");
+      return d.slice(0, 50).replace(/(\d{4})(?=\d)/g, "$1 ");
     case "competencia":
       return d.slice(0, 6).replace(/^(\d{2})(\d)/, "$1/$2");
   }
@@ -38,15 +38,15 @@ export function cnpjValido(valor: string): boolean {
 
 export function chaveNfeValida(valor: string): boolean {
   const d = digitos(valor);
-  if (d.length !== 44) return false;
+  if (d.length !== 44 && d.length !== 50) return false; // 44: NF-e/NFC-e/CT-e; 50: NFS-e nacional
   let soma = 0;
   let peso = 2;
-  for (let i = 42; i >= 0; i--) {
+  for (let i = d.length - 2; i >= 0; i--) {
     soma += Number(d[i]) * peso;
     peso = peso === 9 ? 2 : peso + 1;
   }
   const resto = soma % 11;
-  return Number(d[43]) === (resto < 2 ? 0 : 11 - resto);
+  return Number(d[d.length - 1]) === (resto < 2 ? 0 : 11 - resto);
 }
 
 export function competenciaValida(valor: string): boolean {
@@ -58,7 +58,7 @@ export function competenciaValida(valor: string): boolean {
 export function erroDoFormato(formato: FormatoCampo, valor: string): string | null {
   if (!valor) return null;
   if (formato === "cnpj") return cnpjValido(valor) ? null : "CNPJ inválido (confira os dígitos).";
-  if (formato === "chave_nfe") return chaveNfeValida(valor) ? null : "A chave tem 44 dígitos e o último não confere.";
+  if (formato === "chave_nfe") return chaveNfeValida(valor) ? null : "A chave tem 44 dígitos (NF-e) ou 50 (NFS-e) e o último não confere.";
   return competenciaValida(valor) ? null : "Use MM/AAAA.";
 }
 
@@ -72,7 +72,7 @@ const MODELOS: Record<string, string> = { "55": "NF-e (55)", "65": "NFC-e (65)",
 /** O que a chave de acesso já diz: número, série, modelo, CNPJ do emitente e mês de emissão. */
 export function decodificarChave(valor: string): { numero: string; serie: string; modelo?: string; cnpj_emitente: string; emissao_ano_mes: string } | null {
   const d = digitos(valor);
-  if (!chaveNfeValida(d)) return null;
+  if (d.length !== 44 || !chaveNfeValida(d)) return null; // a NFS-e (50 dígitos) tem outra estrutura
   return {
     emissao_ano_mes: `20${d.slice(2, 4)}-${d.slice(4, 6)}`,
     cnpj_emitente: d.slice(6, 20),
@@ -95,13 +95,40 @@ export interface DadosNfeXml {
   nome_emitente: string;
 }
 
-/** Lê um XML de NF-e/NFC-e (procNFe ou NFe). Devolve null se o arquivo não for uma nota. */
+/**
+ * XML da NFS-e nacional (infNFSe, com a DPS dentro): chave de 50 dígitos no Id, número, prestador (emit),
+ * data de emissão e valor do serviço. Devolve null se não for uma NFS-e.
+ */
+function lerXmlNfse(doc: Document): DadosNfeXml | null {
+  const inf = doc.getElementsByTagNameNS("*", "infNFSe")[0];
+  if (!inf) return null;
+  const tag = (nome: string, raiz: Document | Element = doc) => raiz.getElementsByTagNameNS("*", nome)[0]?.textContent?.trim() ?? "";
+  const numero = (s: string) => (s && Number.isFinite(Number(s)) ? Number(s) : null);
+  const emit = inf.getElementsByTagNameNS("*", "emit")[0];
+  const dps = doc.getElementsByTagNameNS("*", "infDPS")[0];
+  const chave = digitos(inf.getAttribute("Id") ?? "");
+  if (chave.length !== 50) return null;
+  return {
+    chave,
+    modelo: "NFS-e",
+    numero: tag("nNFSe", inf) || String(Number(chave.slice(23, 36))),
+    serie: "",
+    natureza: (dps ? tag("xDescServ", dps) : tag("xDescServ")).slice(0, 200),
+    emissao: ((dps ? tag("dhEmi", dps) : "") || tag("dCompet") || tag("dhProc")).slice(0, 10) || null,
+    valor_total: numero(dps ? tag("vServ", dps) : tag("vServ")) ?? numero(tag("vLiq", inf)),
+    valor_impostos: null,
+    cnpj_emitente: emit ? digitos(tag("CNPJ", emit)) : chave[8] === "2" ? chave.slice(9, 23) : "",
+    nome_emitente: emit ? tag("xFant", emit) || tag("xNome", emit) : "",
+  };
+}
+
+/** Lê um XML de NF-e/NFC-e (procNFe ou NFe) ou de NFS-e nacional. Devolve null se o arquivo não for uma nota. */
 export function lerXmlNfe(xml: string): DadosNfeXml | null {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   if (doc.querySelector("parsererror")) return null;
   const tag = (nome: string, raiz: Document | Element = doc) => raiz.getElementsByTagNameNS("*", nome)[0]?.textContent?.trim() ?? "";
   const inf = doc.getElementsByTagNameNS("*", "infNFe")[0];
-  if (!inf) return null;
+  if (!inf) return lerXmlNfse(doc);
   const emit = doc.getElementsByTagNameNS("*", "emit")[0];
   const total = doc.getElementsByTagNameNS("*", "ICMSTot")[0];
   const numero = (s: string) => (s && Number.isFinite(Number(s)) ? Number(s) : null);

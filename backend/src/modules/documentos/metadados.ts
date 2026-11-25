@@ -101,7 +101,7 @@ export function validarMetadados(campos: CampoPersonalizado[], entrada: Record<s
 
 const MENSAGEM_FORMATO: Record<FormatoCampo, (rotulo: string) => string> = {
   cnpj: (r) => `"${r}": CNPJ inválido.`,
-  chave_nfe: (r) => `"${r}": a chave de acesso tem 44 dígitos e o dígito verificador precisa conferir.`,
+  chave_nfe: (r) => `"${r}": a chave de acesso tem 44 dígitos (NF-e) ou 50 (NFS-e) e o dígito verificador precisa conferir.`,
   competencia: (r) => `"${r}": use o formato MM/AAAA.`,
 };
 
@@ -119,18 +119,18 @@ export function validarCnpj(valor: string): string | null {
   return d.endsWith(`${d1}${d2}`) ? d : null;
 }
 
-/** Chave de acesso de NF-e/NFC-e/CT-e: 44 dígitos com DV módulo 11 (pesos 2 a 9), ou null. */
+/** Chave de acesso de NF-e/NFC-e/CT-e (44 dígitos) ou NFS-e nacional (50), com DV módulo 11 (pesos 2 a 9), ou null. */
 export function validarChaveNfe(valor: string): string | null {
   const d = valor.replace(/\D/g, "");
-  if (d.length !== 44) return null;
+  if (d.length !== 44 && d.length !== 50) return null;
   let soma = 0;
   let peso = 2;
-  for (let i = 42; i >= 0; i--) {
+  for (let i = d.length - 2; i >= 0; i--) {
     soma += Number(d[i]) * peso;
     peso = peso === 9 ? 2 : peso + 1;
   }
   const resto = soma % 11;
-  return Number(d[43]) === (resto < 2 ? 0 : 11 - resto) ? d : null;
+  return Number(d[d.length - 1]) === (resto < 2 ? 0 : 11 - resto) ? d : null;
 }
 
 /** Competência MM/AAAA (aceita MMAAAA), ou null. */
