@@ -129,6 +129,12 @@ docker compose up -d --build     # frontend + backend + MinIO  →  http://local
 
 O Supabase continua pela CLI (`npx supabase start`). O backend no container o acessa por `host.docker.internal`.
 
+**Acesso por outros endereços** (IP da rede, DNS interno, túnel):
+- O navegador só fala com o próprio front. A API passa por `/api` e o login por `/supabase/auth/v1`, que o nginx repassa ao Supabase. Para isso, use `VITE_SUPABASE_URL=/supabase` no `.env`.
+- O destino desse repasse vem de `SUPABASE_URL_DOCKER` (ou `SUPABASE_URL`). Em produção, é a URL do projeto no Supabase Cloud.
+- Só o Auth fica exposto por esse caminho.
+- Para os links de e-mail apontarem para o novo endereço, ajuste `APP_URL`. Para o "esqueci minha senha", inclua o endereço em `additional_redirect_urls` (`supabase/config.toml`).
+
 ## Testes
 
 ```bash

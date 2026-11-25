@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const urlConfig = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+// Aceita caminho relativo (ex.: "/supabase"): o nginx do front repassa o Auth ao Supabase,
+// assim o sistema funciona em qualquer domínio (túnel, DNS interno) sem recompilar.
+const url = urlConfig?.startsWith("/") ? new URL(urlConfig, window.location.origin).toString().replace(/\/$/, "") : urlConfig;
 const chave = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 if (!url || !chave) {

@@ -94,8 +94,13 @@ services:
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    environment:
+      # Para onde o nginx repassa o login (/supabase/auth/v1): o mesmo Supabase do backend.
+      SUPABASE_AUTH_UPSTREAM: ${SUPABASE_URL_DOCKER:-${SUPABASE_URL}}
     ports:
       - "${FRONTEND_PORT:-8080}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - backend
     restart: unless-stopped
