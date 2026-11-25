@@ -29,6 +29,25 @@ describe("EmbeddingsSupabaseGteSmall", () => {
     await expect(provedor.gerar(["a"])).rejects.toThrow(/500/);
   });
 
+  it("divide o lote quando o worker estoura o limite (546) e tenta de novo um trecho sozinho", async () => {
+    let falhasDoTrecho3 = 0;
+    const fetchFn = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const { inputs } = JSON.parse(String(init?.body)) as { inputs: string[] };
+      // Lote com mais de 2 trechos estoura; o trecho "3" falha uma vez sozinho.
+      if (inputs.length > 2 || (inputs[0] === "3" && inputs.length === 1 && falhasDoTrecho3++ === 0)) {
+        return respostaJson({ code: "WORKER_LIMIT", message: "resource limit" }, 546);
+      }
+      return respostaJson({ embeddings: inputs.map((t) => vetor(Number(t))) });
+    });
+    const esperar = vi.fn(async () => {});
+    const provedor = new EmbeddingsSupabaseGteSmall("http://x", "k", 5, fetchFn as unknown as typeof fetch, esperar);
+
+    const resultado = await provedor.gerar(["1", "2", "3", "4", "5"]);
+
+    expect(resultado.map((v) => v[0])).toEqual([1, 2, 3, 4, 5]);
+    expect(esperar).toHaveBeenCalledTimes(1);
+  });
+
   it("falha quando a dimensão do vetor não é 384", async () => {
     const fetchFn = vi.fn(async () => respostaJson({ embeddings: [[0.1, 0.2]] }));
     const provedor = new EmbeddingsSupabaseGteSmall("http://x", "k", 16, fetchFn as unknown as typeof fetch);

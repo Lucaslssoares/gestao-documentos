@@ -47,7 +47,7 @@ const schema = z.object({
 
   /** Padrão: Edge Function "embed" do próprio Supabase (gte-small). */
   EMBEDDINGS_URL: z.url().optional(),
-  EMBEDDINGS_LOTE: z.coerce.number().int().min(1).max(32).default(16),
+  EMBEDDINGS_LOTE: z.coerce.number().int().min(1).max(32).default(4),
   PROCESSAMENTO_CONCORRENCIA: z.coerce.number().int().min(1).max(8).default(2),
 
   /** E-mail dos alertas (prazos, aprovação, nova versão). Sem SMTP_HOST os avisos ficam só no sistema. */
