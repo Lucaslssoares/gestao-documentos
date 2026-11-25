@@ -364,7 +364,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
     <section className="cartao grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2">
         <h2 className="font-semibold">Identificação</h2>
-        {!edicao && arquivo && chat.data && (
+        {!edicao && arquivo && chat.data?.classificar && (
           <Botao variante="secundario" tamanho="sm" icone={Sparkles} carregando={sugerindo} onClick={preencherComIa}>
             {sugerindo ? "Lendo o arquivo..." : "Preencher com IA"}
           </Botao>

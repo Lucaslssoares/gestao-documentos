@@ -31,6 +31,11 @@ export class RegistroFontes {
     return ids.map((id) => todas.get(id)).filter((f): f is Fonte => Boolean(f));
   }
 
+  /** Todas as fontes registradas, em ordem. */
+  todas(): Fonte[] {
+    return [...this.porChave.values()];
+  }
+
   get total(): number {
     return this.porChave.size;
   }

@@ -56,7 +56,7 @@ export default function DashboardPage() {
     { para: "/documentos", titulo: "Documentos", descricao: "Pastas, busca e filtros", icone: FolderOpen },
     ...(podeCadastrar ? [{ para: "/documentos/novo", titulo: "Novo documento", descricao: "Enviar e classificar um arquivo", icone: FilePlus2, destaque: true }] : []),
     { para: "/pendencias", titulo: "Pendências", descricao: "Prazos, renovações, revisões e aprovações", icone: ListChecks, alerta: atrasadas > 0 },
-    ...(chat.data ? [{ para: "/assistente", titulo: "Assistente IA", descricao: "Pergunte aos seus documentos", icone: Sparkles }] : []),
+    ...(chat.data?.disponivel ? [{ para: "/assistente", titulo: "Assistente IA", descricao: "Pergunte aos seus documentos", icone: Sparkles }] : []),
     ...(ehGestorOuAdmin ? [{ para: "/lixeira", titulo: "Lixeira", descricao: "Restaurar documentos excluídos", icone: Trash2 }] : []),
     ...(ehGestorOuAdmin
       ? [{ para: "/configuracoes", titulo: ehAdmin ? "Configurações" : "Cadastros", descricao: ehAdmin ? "Pastas, tipos, empresas e usuários" : "Empresas e tags", icone: Settings }]
