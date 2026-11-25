@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../lib/api";
 import { achatarCategorias, chaves, useAprovadores, useCategorias, useChatDisponivel, useEmpresas, useEquipe, useSetores, useTipos } from "../../lib/consultas";
-import { lerXmlNfe, mascarar } from "../../lib/campos";
+import { lerXmlNfe, mascarar, type DadosNfeXml } from "../../lib/campos";
 import { formatarData, formatarTamanho } from "../../lib/format";
 import type { DocumentoDetalhe, SugestaoClassificacao } from "../../lib/tipos";
 import { Botao } from "../ui/Botao";
@@ -88,7 +88,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
   }));
   const [sugestao, setSugestao] = useState<SugestaoClassificacao | null>(null);
   const [sugerindo, setSugerindo] = useState(false);
-  const [lidoDoXml, setLidoDoXml] = useState<{ emitente: string; cadastrado: boolean } | null>(null);
+  const [lidoDoXml, setLidoDoXml] = useState<{ emitente: string; cadastrado: boolean; origem: "XML" | "PDF" } | null>(null);
   const chat = useChatDisponivel();
   const definir = <K extends keyof Dados>(campo: K, valor: Dados[K]) => setDados((d) => ({ ...d, [campo]: valor }));
 
@@ -173,6 +173,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
     setLidoDoXml(null);
     if (a && !dados.titulo) definir("titulo", a.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
     if (a && /\.xml$/i.test(a.name)) void a.text().then(preencherComXml);
+    if (a && /\.pdf$/i.test(a.name)) void preencherComPdf(a);
     // Escolheu o arquivo: segue direto para a classificação.
     if (a && !edicao) irPara(1);
   }
@@ -180,11 +181,27 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
   /** XML de NF-e: tipo, número, série, chave, valores, data e emitente saem do próprio arquivo. */
   function preencherComXml(texto: string) {
     const nf = lerXmlNfe(texto);
+    if (nf) aplicarNfe(nf, "XML");
+  }
+
+  /** PDF (DANFE): o servidor lê o texto e acha a chave de acesso, o valor e a data. Se não for uma nota, nada muda. */
+  async function preencherComPdf(arquivoPdf: File) {
+    try {
+      const form = new FormData();
+      form.append("arquivo", arquivoPdf);
+      const { nfe } = await api<{ nfe: DadosNfeXml | null }>("/documentos/ler-nfe", { method: "POST", body: form });
+      if (nfe) aplicarNfe(nfe, "PDF");
+    } catch {
+      // A leitura é uma ajuda: se falhar, a pessoa preenche à mão como antes.
+    }
+  }
+
+  function aplicarNfe(nf: DadosNfeXml, origem: "XML" | "PDF") {
     const tipoNf = tipos.data?.find((t) => t.codigo === "nota_fiscal");
     if (!nf || !tipoNf) return;
     const emitente = empresas.data?.find((e) => e.cnpj && e.cnpj.replace(/\D/g, "") === nf.cnpj_emitente);
     const sugerida = tipoNf.categoria_padrao_id && opcoesCategoria.some((c) => c.id === tipoNf.categoria_padrao_id) ? tipoNf.categoria_padrao_id : null;
-    const sigla = nf.modelo?.startsWith("NFC") ? "NFC-e" : "NF-e";
+    const sigla = nf.modelo?.startsWith("NFC") ? "NFC-e" : nf.modelo?.startsWith("NFS") ? "NFS-e" : "NF-e";
     setDados((d) => ({
       ...d,
       tipo_id: tipoNf.id,
@@ -204,7 +221,7 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
         valor_impostos: nf.valor_impostos ?? undefined,
       },
     }));
-    setLidoDoXml({ emitente: nf.nome_emitente, cadastrado: Boolean(emitente) });
+    setLidoDoXml({ emitente: nf.nome_emitente, cadastrado: Boolean(emitente), origem });
   }
 
   // O botão que enviou o formulário diz se é para avançar de etapa ou salvar.
@@ -334,7 +351,8 @@ export function FormularioDocumento({ documento, categoriaInicial }: { documento
         <p role="status" className="mt-3 flex gap-2 rounded-xl border border-primary/30 bg-success-faint px-3 py-2.5 text-sm">
           <Check className="mt-0.5 size-4 shrink-0 text-primary-dark" aria-hidden />
           <span>
-            <span className="font-semibold">Dados lidos do XML da NF-e.</span> Confira chave, número, valores e data.
+            <span className="font-semibold">{lidoDoXml.origem === "PDF" ? "Dados lidos do PDF da nota fiscal." : "Dados lidos do XML da NF-e."}</span>{" "}
+            {lidoDoXml.origem === "PDF" ? "Confira chave, número, valor e data: no PDF o valor e a data dependem do layout do DANFE." : "Confira chave, número, valores e data."}
             {lidoDoXml.emitente && !lidoDoXml.cadastrado && ` O emitente “${lidoDoXml.emitente}” ainda não está cadastrado: use “Nova” no campo do emitente.`}
           </span>
         </p>

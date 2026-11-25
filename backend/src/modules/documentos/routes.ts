@@ -6,6 +6,8 @@ import { erroDoBanco, HttpError } from "../../lib/errors.js";
 import { dataIso, idParam, paginacaoSchema } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
 import { abrirArquivo, removerArquivo } from "../../lib/s3.js";
+import { lerNotaFiscalPdf } from "../../processing/danfe.js";
+import { extrairTexto } from "../../processing/extrair.js";
 import { filaProcessamento } from "../../processing/fila.js";
 import { SITUACOES_DOCUMENTO } from "../../types/dominio.js";
 import { hojeLocal } from "../../alertas/agendador.js";
@@ -198,6 +200,20 @@ documentosRouter.post("/:id/revisar", async (req, res) => {
 /** "Preencher com IA": lê o arquivo (ainda não salvo) e sugere a classificação para o usuário conferir. */
 documentosRouter.post("/sugerir", receberArquivo, async (req, res) => {
   res.json(await sugerirClassificacao(ctx(req), req.file));
+});
+
+/** Lê o DANFE (PDF de NF-e/NFC-e) ainda não salvo e devolve os dados da nota, ou {nfe: null} se não for uma nota. */
+documentosRouter.post("/ler-nfe", receberArquivo, async (req, res) => {
+  if (!req.file || req.file.size === 0) throw new HttpError(400, "Envie o PDF da nota fiscal.");
+  if (req.file.mimetype !== "application/pdf" && !/\.pdf$/i.test(req.file.originalname)) throw new HttpError(415, "Só PDF: o XML da nota é lido no próprio formulário.");
+  let texto = "";
+  try {
+    const extraido = await extrairTexto(req.file.buffer, "application/pdf");
+    texto = extraido.paginas.map((p) => p.texto).join("\n");
+  } catch (err) {
+    logger.warn({ err }, "não foi possível ler o PDF para identificar a nota fiscal");
+  }
+  res.json({ nfe: lerNotaFiscalPdf(texto) });
 });
 
 /** Upload: multipart/form-data com o campo "arquivo" + classificação do documento. */
